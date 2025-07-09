@@ -343,6 +343,38 @@ app.get("/api/session", (req, res) => {
   }
 });
 
+// Perfil do usuário logado
+app.get("/api/usuarios/me", authRequired, async (req, res) => {
+  const usuarios = await obterUsuarios();
+  const user = usuarios.find(u => u.id === req.session.usuario.id);
+  if (!user) return res.status(404).json({ erro: "Usuário não encontrado" });
+  const { senha, ...semSenha } = user;
+  res.json(semSenha);
+});
+
+app.put("/api/usuarios/me", authRequired, upload.single("foto"), async (req, res) => {
+  const { usuario, senha } = req.body;
+  const usuarios = await obterUsuarios();
+  const index = usuarios.findIndex(u => u.id === req.session.usuario.id);
+  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
+  if (usuario) {
+    if (usuarios.some((u, i) => u.usuario === usuario && i !== index)) {
+      return res.status(400).json({ erro: "Usuário já existe" });
+    }
+    usuarios[index].usuario = usuario;
+    req.session.usuario.usuario = usuario;
+  }
+  if (senha) usuarios[index].senha = await bcrypt.hash(senha, 10);
+  if (req.file) {
+    const buffer = await toWebp(req.file.buffer);
+    req.file.buffer = null;
+    usuarios[index].foto = `data:image/webp;base64,${buffer.toString('base64')}`;
+  }
+  await salvarUsuarios(usuarios);
+  const { senha: s, ...updatedUser } = usuarios[index];
+  res.json(updatedUser);
+});
+
 // CRUD de usuários (admin)
 app.get("/api/usuarios", authRequired, adminRequired, async (req, res) => {
   const usuarios = await obterUsuarios();
@@ -406,38 +438,6 @@ app.delete("/api/usuarios/:id", authRequired, adminRequired, async (req, res) =>
   usuarios.splice(index, 1);
   await salvarUsuarios(usuarios);
   res.json({ mensagem: "Usuário removido" });
-});
-
-// Perfil do usuário logado
-app.get("/api/usuarios/me", authRequired, async (req, res) => {
-  const usuarios = await obterUsuarios();
-  const user = usuarios.find(u => u.id === req.session.usuario.id);
-  if (!user) return res.status(404).json({ erro: "Usuário não encontrado" });
-  const { senha, ...semSenha } = user;
-  res.json(semSenha);
-});
-
-app.put("/api/usuarios/me", authRequired, upload.single("foto"), async (req, res) => {
-  const { usuario, senha } = req.body;
-  const usuarios = await obterUsuarios();
-  const index = usuarios.findIndex(u => u.id === req.session.usuario.id);
-  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
-  if (usuario) {
-    if (usuarios.some((u, i) => u.usuario === usuario && i !== index)) {
-      return res.status(400).json({ erro: "Usuário já existe" });
-    }
-    usuarios[index].usuario = usuario;
-    req.session.usuario.usuario = usuario;
-  }
-  if (senha) usuarios[index].senha = await bcrypt.hash(senha, 10);
-  if (req.file) {
-    const buffer = await toWebp(req.file.buffer);
-    req.file.buffer = null;
-    usuarios[index].foto = `data:image/webp;base64,${buffer.toString('base64')}`;
-  }
-  await salvarUsuarios(usuarios);
-  const { senha: s, ...updatedUser } = usuarios[index];
-  res.json(updatedUser);
 });
 
 // Logs (admin)
