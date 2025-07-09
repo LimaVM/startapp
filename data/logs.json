@@ -1,0 +1,42 @@
+[
+  {
+    "id": "X22ITQDJ",
+    "timestamp": "2025-06-25T12:09:39.957Z",
+    "usuario": "start",
+    "userId": "1",
+    "ip": "::ffff:138.36.102.95",
+    "descricao": "Criou usuário devlima (admin=true)"
+  },
+  {
+    "id": "3QAt66pm",
+    "timestamp": "2025-07-08T13:05:32.429Z",
+    "usuario": "start",
+    "userId": "1",
+    "ip": "::ffff:201.182.39.123",
+    "descricao": "Criou produto Prensa"
+  },
+  {
+    "id": "lAswthht",
+    "timestamp": "2025-07-08T13:08:52.812Z",
+    "usuario": "devlima",
+    "userId": "4SuX_m3m",
+    "ip": "::ffff:179.136.13.114",
+    "descricao": "Criou orçamento SIEY valor R$ 1.650,00"
+  },
+  {
+    "id": "5LXoOMlT",
+    "timestamp": "2025-07-08T13:10:04.801Z",
+    "usuario": "devlima",
+    "userId": "4SuX_m3m",
+    "ip": "::ffff:179.136.13.114",
+    "descricao": "Criou orçamento 2ZQK valor R$ 1.650,00"
+  },
+  {
+    "id": "zltFWAR8",
+    "timestamp": "2025-07-08T13:23:42.617Z",
+    "usuario": "start",
+    "userId": "1",
+    "ip": "::ffff:179.136.13.114",
+    "descricao": "Criou orçamento IR3B valor R$ 1.650,00"
+  }
+]
