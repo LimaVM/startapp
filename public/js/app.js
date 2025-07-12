@@ -362,6 +362,25 @@ async function buscarCep() {
   }
 }
 
+async function buscarCnpj() {
+  const cnpj = clienteCpf.value.replace(/\D/g, '');
+  if (cnpj.length !== 14 || !navigator.onLine) return;
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const nome = data.nome_fantasia || data.razao_social;
+    if (!clienteNome.value && nome) clienteNome.value = nome;
+    const endereco = `${data.logradouro}${data.numero ? ', ' + data.numero : ''}, ${data.bairro}, ${data.municipio} - ${data.uf}`.trim();
+    if (!clienteEndereco.value && data.logradouro) clienteEndereco.value = endereco;
+    if (!clienteCep.value && data.cep) clienteCep.value = data.cep;
+    if (!clienteTelefone.value && data.ddd_telefone_1) clienteTelefone.value = data.ddd_telefone_1;
+    if (!clienteEmail.value && data.email) clienteEmail.value = data.email;
+  } catch (err) {
+    console.error('Erro ao buscar CNPJ', err);
+  }
+}
+
 
 function atualizarEstadoBotaoProximo() {
   const tabAtual = document.querySelector(".tab-btn.active");
@@ -858,6 +877,7 @@ function initOrcamentoModal() {
   }
   if (clienteCpf) {
     clienteCpf.addEventListener('input', () => validarCpfCnpj());
+    clienteCpf.addEventListener('blur', buscarCnpj);
   }
   if (clienteCep) {
     clienteCep.addEventListener('blur', buscarCep);
