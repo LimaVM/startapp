@@ -753,9 +753,19 @@
                         if (confirm('Nova versão disponível! Deseja atualizar agora?')) {
                           fetch('/api/logout', { method: 'POST' })
                             .finally(() => {
-                              newWorker.postMessage({ type: 'SKIP_WAITING' });
-                              localStorage.setItem('appVersion', version);
-                              window.location.reload();
+                              if ('caches' in window) {
+                                caches.keys()
+                                  .then(names => Promise.all(names.map(n => caches.delete(n))))
+                                  .finally(() => {
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                    localStorage.setItem('appVersion', version);
+                                    window.location.reload(true);
+                                  });
+                              } else {
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                localStorage.setItem('appVersion', version);
+                                window.location.reload(true);
+                              }
                             });
                         }
                       }
