@@ -191,35 +191,27 @@ app.use('/api', (req, res, next) => {
 });
 
 // --- Funções Auxiliares --- //
-const jsonCache = {};
-
 async function lerArquivoJSON(filePath) {
-  if (jsonCache[filePath]) {
-    return jsonCache[filePath];
-  }
   try {
     const data = await fs.readFile(filePath, "utf8");
-    jsonCache[filePath] = JSON.parse(data);
+    return JSON.parse(data);
   } catch (error) {
     if (error.code === "ENOENT") {
       console.warn(`Arquivo ${filePath} não encontrado, retornando array vazio.`);
-      jsonCache[filePath] = [];
-    } else {
-      console.error(`Erro ao ler arquivo ${filePath}:`, error);
-      throw new Error(`Falha ao ler arquivo JSON: ${filePath}`); // Lança erro para ser tratado
+      return [];
     }
+    console.error(`Erro ao ler arquivo ${filePath}:`, error);
+    throw new Error(`Falha ao ler arquivo JSON: ${filePath}`);
   }
-  return jsonCache[filePath];
 }
 
 async function escreverArquivoJSON(filePath, data) {
-  jsonCache[filePath] = data;
   try {
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
     return true;
   } catch (error) {
     console.error(`Erro ao escrever arquivo ${filePath}:`, error);
-    throw new Error(`Falha ao escrever arquivo JSON: ${filePath}`); // Lança erro
+    throw new Error(`Falha ao escrever arquivo JSON: ${filePath}`);
   }
 }
 
