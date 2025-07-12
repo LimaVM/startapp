@@ -73,6 +73,26 @@ O arquivo `variaveis_template.txt` contém todas as variáveis disponíveis para
 4. O servidor escuta nas portas 80 e 443 (HTTPS). Acesse em `https://seu_dominio`
 5. Faça login com o usuário padrão `start` e senha `start`
 
+### Dependências para geração de PDF (Ubuntu)
+
+Ao gerar PDFs o projeto utiliza o Puppeteer com o navegador Chromium. Em algumas
+instalações do Ubuntu o binário `/usr/bin/chromium-browser` não está presente e
+aparecem erros semelhantes a:
+
+```
+Erro ao baixar PDF: {"erro":"Failed to launch the browser process!\n/usr/bin/chromium-browser: 12: xdg-settings: not found"}
+```
+
+Para resolver instale o Chromium e bibliotecas necessárias:
+
+```bash
+sudo apt install -y chromium-browser libgbm1 xdg-utils
+```
+
+Certifique-se de que o comando `chromium` ou `chromium-browser` funcione em seu
+sistema. Se continuar com problemas, consulte o guia oficial em
+<https://pptr.dev/troubleshooting>.
+
 ## Responsividade
 
 O aplicativo é 100% responsivo e otimizado para:
