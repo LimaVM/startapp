@@ -1693,7 +1693,7 @@ async function baixarPdfOrcamento() {
   }
   iniciarProgressoPdf();
   try {
-    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`);
+    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`, { cache: 'no-cache' });
     if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || `Erro ${response.status} ao gerar PDF`);
@@ -1731,7 +1731,7 @@ async function compartilharPdfOrcamento() {
   }
   iniciarProgressoPdf();
   try {
-    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`);
+    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`, { cache: 'no-cache' });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(errorText || `Erro ${response.status} ao gerar PDF`);

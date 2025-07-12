@@ -8,8 +8,8 @@
  * @version 2.0.0 - Estratégia anti-cache implementada
  */
 
-// Versão do cache - ALTERE ESTE VALOR SEMPRE QUE ATUALIZAR O APP
-// Atualize manualmente este valor quando fizer uma nova release
+// Versão do app e do cache - atualize manualmente a cada release
+const APP_VERSION = '2.0.1';
 const CACHE_VERSION = 'v2.0.1';
 const STATIC_CACHE = 'orcamentos-static-' + CACHE_VERSION;
 const DATA_CACHE = 'orcamentos-data-' + CACHE_VERSION;
@@ -87,7 +87,7 @@ self.addEventListener('activate', event => {
         clients.forEach(client => {
           client.postMessage({
             type: 'SW_UPDATED',
-            version: CACHE_VERSION
+            version: APP_VERSION
           });
         });
       });
