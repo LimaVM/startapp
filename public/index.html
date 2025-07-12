@@ -15,12 +15,12 @@
   
   <!-- Manifest para PWA -->
   <link rel="manifest" href="/manifest.json">
-  <link rel="preload" href="/css/modern-style.css?v=2.0.0" as="style">
-  <link rel="preload" href="/js/app.js?v=2.0.0" as="script">
-  <link rel="prefetch" href="/js/jspdf.umd.min.js?v=2.0.0" as="script">
+  <link rel="preload" href="/css/modern-style.css?v=2.0.1" as="style">
+  <link rel="preload" href="/js/app.js?v=2.0.1" as="script">
+  <link rel="prefetch" href="/js/jspdf.umd.min.js?v=2.0.1" as="script">
   
   <!-- Estilos CSS com versionamento anti-cache -->
-  <link rel="stylesheet" href="/css/modern-style.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/modern-style.css?v=2.0.1">
   
   <!-- Fonte Inter do Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -731,13 +731,13 @@
   </div>
 
   <!-- Scripts com versionamento anti-cache -->
-  <script src="/js/jspdf.umd.min.js?v=2.0.0" defer></script>
-  <script src="/js/app.js?v=2.0.0" defer></script>
+  <script src="/js/jspdf.umd.min.js?v=2.0.1" defer></script>
+  <script src="/js/app.js?v=2.0.1" defer></script>
   <script>
     // Registra o service worker para PWA com estratégia de atualização
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js?v=2.0.0')
+        navigator.serviceWorker.register('/service-worker.js?v=2.0.1')
           .then(registration => {
             console.log('Service Worker registrado com sucesso:', registration);
             
@@ -748,8 +748,11 @@
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   // Nova versão disponível
                   if (confirm('Nova versão disponível! Deseja atualizar agora?')) {
-                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                    window.location.reload();
+                    fetch('/api/logout', { method: 'POST' })
+                      .finally(() => {
+                        newWorker.postMessage({ type: 'SKIP_WAITING' });
+                        window.location.reload();
+                      });
                   }
                 }
               });
