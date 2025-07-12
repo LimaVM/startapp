@@ -1106,7 +1106,9 @@ app.get("*", (req, res) => {
 
 // Middleware de tratamento de erros genérico
 app.use((err, req, res, next) => {
-  console.error("Erro detectado pelo Middleware:", err);
+  const user = req.session?.usuario?.usuario || 'desconhecido';
+  const ip = req.ip;
+  console.error(`Erro detectado pelo Middleware para ${user} (${ip}):`, err);
   // Se o erro for do Puppeteer, pode ser útil logar a causa
   if (err.message && (err.message.includes("Protocol error") || err.message.includes("Target closed"))) {
       console.error("Detalhes do erro Puppeteer:", err.cause || "Nenhuma causa específica informada");

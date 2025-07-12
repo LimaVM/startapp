@@ -9,7 +9,8 @@
  */
 
 // Versão do cache - ALTERE ESTE VALOR SEMPRE QUE ATUALIZAR O APP
-const CACHE_VERSION = 'v2.0.0-' + Date.now();
+// Atualize manualmente este valor quando fizer uma nova release
+const CACHE_VERSION = 'v2.0.1';
 const STATIC_CACHE = 'orcamentos-static-' + CACHE_VERSION;
 const DATA_CACHE = 'orcamentos-data-' + CACHE_VERSION;
 

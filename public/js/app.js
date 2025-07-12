@@ -1148,12 +1148,15 @@ async function carregarOrcamentos(forceReload = false) {
   
   try {
     const response = await fetchWithNoCache("/api/orcamentos");
-    if (!response.ok) throw new Error("Erro ao buscar orçamentos");
-    orcamentosCache = await response.json();
+    if (response.ok) {
+      orcamentosCache = await response.json();
+    } else {
+      console.warn('Não foi possível obter orçamentos:', response.status);
+      orcamentosCache = [];
+    }
     renderizarOrcamentos();
   } catch (error) {
-    console.error("Erro ao carregar orçamentos:", error);
-    mostrarToast("Erro ao carregar orçamentos.", "error");
+    console.error('Falha ao carregar orçamentos', error);
     orcamentosCache = [];
     renderizarOrcamentos();
   }
