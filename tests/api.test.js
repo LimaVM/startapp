@@ -33,6 +33,7 @@ describe('POST /api/usuarios', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.usuario).toBe('dev lima');
+    expect(res.body.admin).toBe(false);
 
     await agent.delete(`/api/usuarios/${res.body.id}`).expect(200);
   });

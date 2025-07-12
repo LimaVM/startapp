@@ -393,7 +393,7 @@ app.post("/api/usuarios", authRequired, adminRequired, upload.single("foto"), as
     id: nanoid(8),
     usuario,
     senha: await bcrypt.hash(senha, 10),
-    admin: !!admin,
+    admin: admin === true || admin === "true" || admin === "1" || admin === 1,
     foto: null,
   };
   if (req.file) {
@@ -403,7 +403,8 @@ app.post("/api/usuarios", authRequired, adminRequired, upload.single("foto"), as
   }
   usuarios.push(novo);
   await salvarUsuarios(usuarios);
-  await registrarAcao(req, `Criou usuário ${usuario} (admin=${!!admin})`);
+  const isAdmin = novo.admin;
+  await registrarAcao(req, `Criou usuário ${usuario} (admin=${isAdmin})`);
   res.status(201).json({ id: novo.id, usuario: novo.usuario, admin: novo.admin });
 });
 
@@ -419,7 +420,9 @@ app.put("/api/usuarios/:id", authRequired, adminRequired, upload.single("foto"),
     usuarios[index].usuario = usuario;
   }
   if (senha) usuarios[index].senha = await bcrypt.hash(senha, 10);
-  if (admin !== undefined) usuarios[index].admin = !!admin;
+  if (admin !== undefined) {
+    usuarios[index].admin = admin === true || admin === "true" || admin === "1" || admin === 1;
+  }
   if (req.file) {
     const buffer = await toWebp(req.file.buffer);
     req.file.buffer = null;
