@@ -1977,15 +1977,17 @@ function mostrarConfirmacao(mensagem) {
 async function carregarUsuarios() {
   try {
     const res = await fetch('/api/usuarios');
-    if (!res.ok) throw new Error('Erro ao buscar usuários');
-    usuariosCache = await res.json();
-    renderizarUsuarios();
+    if (res.ok) {
+      usuariosCache = await res.json();
+    } else {
+      console.warn('Não foi possível obter usuários:', res.status);
+      usuariosCache = [];
+    }
   } catch (err) {
     console.error('Falha ao carregar usuários', err);
-    mostrarToast('Erro ao carregar usuários');
     usuariosCache = [];
-    renderizarUsuarios();
   }
+  renderizarUsuarios();
 }
 
 function renderizarUsuarios() {
@@ -2067,15 +2069,17 @@ document.querySelectorAll('#usuario-modal .modal-close, #usuario-modal .modal-ca
 async function carregarRegistros() {
   try {
     const res = await fetch('/api/logs');
-    if (!res.ok) throw new Error('Erro ao buscar registros');
-    registrosCache = await res.json();
-    renderizarRegistros();
+    if (res.ok) {
+      registrosCache = await res.json();
+    } else {
+      console.warn('Não foi possível obter registros:', res.status);
+      registrosCache = [];
+    }
   } catch (err) {
     console.error('Falha ao carregar registros', err);
-    mostrarToast('Erro ao carregar registros');
     registrosCache = [];
-    renderizarRegistros();
   }
+  renderizarRegistros();
 }
 
 function renderizarRegistros() {
@@ -2098,13 +2102,15 @@ async function carregarPerfil() {
   if (!perfilForm) return;
   try {
     const res = await fetch('/api/usuarios/me');
-    if (!res.ok) throw new Error('Erro ao carregar perfil');
-    const user = await res.json();
-    perfilNome.value = user.usuario;
-    if (user.foto) perfilFotoPreview.src = user.foto;
+    if (res.ok) {
+      const user = await res.json();
+      perfilNome.value = user.usuario;
+      if (user.foto) perfilFotoPreview.src = user.foto;
+    } else {
+      console.warn('Não foi possível carregar perfil:', res.status);
+    }
   } catch (err) {
-    console.error(err);
-    mostrarToast('Erro ao carregar perfil');
+    console.error('Erro ao carregar perfil', err);
   }
 }
 
