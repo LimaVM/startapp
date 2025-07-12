@@ -28,7 +28,7 @@ let browserInstance = null;
 async function getBrowser() {
   if (!browserInstance) {
     browserInstance = await puppeteer.launch({
-      executablePath: "/usr/bin/chromium-browser",
+      executablePath: "/usr/bin/ungoogled-chromium", // Chromium ARM64 nativo
       headless: true,
       args: [
         "--no-sandbox",
@@ -42,6 +42,7 @@ async function getBrowser() {
   }
   return browserInstance;
 }
+
 
 async function closeBrowser() {
   if (browserInstance) {
@@ -584,7 +585,7 @@ app.get("/api/templates/:id", async (req, res, next) => {
     const caminhoTemplate = path.join(__dirname, "templates", templateId);
     try {
       const conteudo = await fs.readFile(caminhoTemplate, "utf8");
-      res.json({ id: templateId, conteudo });
+      res.json({ id: templateId, cnteudo });
     } catch (error) {
       if (error.code === "ENOENT") {
         return res.status(404).json({ erro: "Template não encontrado" });
