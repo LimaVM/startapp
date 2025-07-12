@@ -737,37 +737,45 @@
     // Registra o service worker para PWA com estratégia de atualização
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js?v=2.0.1')
-          .then(registration => {
-            console.log('Service Worker registrado com sucesso:', registration);
-            
-            // Escuta atualizações do service worker
-            registration.addEventListener('updatefound', () => {
-              const newWorker = registration.installing;
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // Nova versão disponível
-                  if (confirm('Nova versão disponível! Deseja atualizar agora?')) {
-                    fetch('/api/logout', { method: 'POST' })
-                      .finally(() => {
-                        newWorker.postMessage({ type: 'SKIP_WAITING' });
-                        window.location.reload();
-                      });
-                  }
+        fetch('/api/version')
+          .then(r => r.json())
+          .then(({ version }) => {
+            const stored = localStorage.getItem('appVersion');
+            const shouldPrompt = stored && stored !== version;
+            return navigator.serviceWorker.register(`/service-worker.js?v=${version}`)
+              .then(registration => {
+                console.log('Service Worker registrado com sucesso:', registration);
+                if (shouldPrompt) {
+                  registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        if (confirm('Nova versão disponível! Deseja atualizar agora?')) {
+                          fetch('/api/logout', { method: 'POST' })
+                            .finally(() => {
+                              newWorker.postMessage({ type: 'SKIP_WAITING' });
+                              localStorage.setItem('appVersion', version);
+                              window.location.reload();
+                            });
+                        }
+                      }
+                    });
+                  });
+                } else {
+                  localStorage.setItem('appVersion', version);
                 }
+
+                navigator.serviceWorker.addEventListener('message', event => {
+                  if (event.data && event.data.type === 'SW_UPDATED') {
+                    localStorage.setItem('appVersion', event.data.version);
+                    console.log('Service Worker atualizado para versão:', event.data.version);
+                  }
+                });
               });
-            });
           })
           .catch(error => {
             console.log('Falha ao registrar o Service Worker:', error);
           });
-          
-        // Escuta mensagens do service worker
-        navigator.serviceWorker.addEventListener('message', event => {
-          if (event.data && event.data.type === 'SW_UPDATED') {
-            console.log('Service Worker atualizado para versão:', event.data.version);
-          }
-        });
       });
     }
     

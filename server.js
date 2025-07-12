@@ -21,6 +21,8 @@ const compression = require("compression");
 const bcrypt = require("bcrypt");
 const app = express();
 
+const APP_VERSION = '2.0.1';
+
 let browserInstance = null;
 
 async function getBrowser() {
@@ -333,6 +335,10 @@ app.get("/api/session", (req, res) => {
   } else {
     res.json({ autenticado: false });
   }
+});
+
+app.get('/api/version', (req, res) => {
+  res.json({ version: APP_VERSION });
 });
 
 // Perfil do usuário logado
