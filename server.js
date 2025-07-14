@@ -25,7 +25,7 @@ const bcrypt = require("bcrypt");
 const { randomBytes } = require("crypto");
 const app = express();
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.0.2';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 
 let browserInstance = null;
