@@ -21,12 +21,14 @@ const compression = require("compression");
 const bcrypt = require("bcrypt");
 const app = express();
 
+const APP_VERSION = '2.0.1';
+
 let browserInstance = null;
 
 async function getBrowser() {
   if (!browserInstance) {
     browserInstance = await puppeteer.launch({
-      executablePath: "/usr/bin/chromium-browser",
+      executablePath: "/usr/bin/ungoogled-chromium", // Chromium ARM64 nativo
       headless: true,
       args: [
         "--no-sandbox",
@@ -40,6 +42,7 @@ async function getBrowser() {
   }
   return browserInstance;
 }
+
 
 async function closeBrowser() {
   if (browserInstance) {
@@ -191,35 +194,27 @@ app.use('/api', (req, res, next) => {
 });
 
 // --- Funções Auxiliares --- //
-const jsonCache = {};
-
 async function lerArquivoJSON(filePath) {
-  if (jsonCache[filePath]) {
-    return jsonCache[filePath];
-  }
   try {
     const data = await fs.readFile(filePath, "utf8");
-    jsonCache[filePath] = JSON.parse(data);
+    return JSON.parse(data);
   } catch (error) {
     if (error.code === "ENOENT") {
       console.warn(`Arquivo ${filePath} não encontrado, retornando array vazio.`);
-      jsonCache[filePath] = [];
-    } else {
-      console.error(`Erro ao ler arquivo ${filePath}:`, error);
-      throw new Error(`Falha ao ler arquivo JSON: ${filePath}`); // Lança erro para ser tratado
+      return [];
     }
+    console.error(`Erro ao ler arquivo ${filePath}:`, error);
+    throw new Error(`Falha ao ler arquivo JSON: ${filePath}`);
   }
-  return jsonCache[filePath];
 }
 
 async function escreverArquivoJSON(filePath, data) {
-  jsonCache[filePath] = data;
   try {
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
     return true;
   } catch (error) {
     console.error(`Erro ao escrever arquivo ${filePath}:`, error);
-    throw new Error(`Falha ao escrever arquivo JSON: ${filePath}`); // Lança erro
+    throw new Error(`Falha ao escrever arquivo JSON: ${filePath}`);
   }
 }
 
@@ -343,69 +338,8 @@ app.get("/api/session", (req, res) => {
   }
 });
 
-// CRUD de usuários (admin)
-app.get("/api/usuarios", authRequired, adminRequired, async (req, res) => {
-  const usuarios = await obterUsuarios();
-  const semSenha = usuarios.map(({ senha, ...rest }) => rest);
-  res.json(semSenha);
-});
-
-app.post("/api/usuarios", authRequired, adminRequired, upload.single("foto"), async (req, res) => {
-  const { usuario, senha, admin } = req.body;
-  if (!usuario || !senha) return res.status(400).json({ erro: "Dados inválidos" });
-  const usuarios = await obterUsuarios();
-  if (usuarios.find((u) => u.usuario === usuario)) {
-    return res.status(400).json({ erro: "Usuário já existe" });
-  }
-  const { nanoid } = await import("nanoid");
-  const novo = {
-    id: nanoid(8),
-    usuario,
-    senha: await bcrypt.hash(senha, 10),
-    admin: !!admin,
-    foto: null,
-  };
-  if (req.file) {
-    const buffer = await toWebp(req.file.buffer);
-    req.file.buffer = null;
-    novo.foto = `data:image/webp;base64,${buffer.toString('base64')}`;
-  }
-  usuarios.push(novo);
-  await salvarUsuarios(usuarios);
-  await registrarAcao(req, `Criou usuário ${usuario} (admin=${!!admin})`);
-  res.status(201).json({ id: novo.id, usuario: novo.usuario, admin: novo.admin });
-});
-
-app.put("/api/usuarios/:id", authRequired, adminRequired, upload.single("foto"), async (req, res) => {
-  const { usuario, senha, admin } = req.body;
-  const usuarios = await obterUsuarios();
-  const index = usuarios.findIndex((u) => u.id === req.params.id);
-  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
-  if (usuario) {
-    if (usuarios.some((u, i) => u.usuario === usuario && i !== index)) {
-      return res.status(400).json({ erro: "Usuário já existe" });
-    }
-    usuarios[index].usuario = usuario;
-  }
-  if (senha) usuarios[index].senha = await bcrypt.hash(senha, 10);
-  if (admin !== undefined) usuarios[index].admin = !!admin;
-  if (req.file) {
-    const buffer = await toWebp(req.file.buffer);
-    req.file.buffer = null;
-    usuarios[index].foto = `data:image/webp;base64,${buffer.toString('base64')}`;
-  }
-  await salvarUsuarios(usuarios);
-  const { senha: s, ...usuarioResp } = usuarios[index];
-  res.json(usuarioResp);
-});
-
-app.delete("/api/usuarios/:id", authRequired, adminRequired, async (req, res) => {
-  const usuarios = await obterUsuarios();
-  const index = usuarios.findIndex((u) => u.id === req.params.id);
-  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
-  usuarios.splice(index, 1);
-  await salvarUsuarios(usuarios);
-  res.json({ mensagem: "Usuário removido" });
+app.get('/api/version', (req, res) => {
+  res.json({ version: APP_VERSION });
 });
 
 // Perfil do usuário logado
@@ -438,6 +372,74 @@ app.put("/api/usuarios/me", authRequired, upload.single("foto"), async (req, res
   await salvarUsuarios(usuarios);
   const { senha: s, ...updatedUser } = usuarios[index];
   res.json(updatedUser);
+});
+
+// CRUD de usuários (admin)
+app.get("/api/usuarios", authRequired, adminRequired, async (req, res) => {
+  const usuarios = await obterUsuarios();
+  const semSenha = usuarios.map(({ senha, ...rest }) => rest);
+  res.json(semSenha);
+});
+
+app.post("/api/usuarios", authRequired, adminRequired, upload.single("foto"), async (req, res) => {
+  const { usuario, senha, admin } = req.body;
+  if (!usuario || !senha) return res.status(400).json({ erro: "Dados inválidos" });
+  const usuarios = await obterUsuarios();
+  if (usuarios.find((u) => u.usuario === usuario)) {
+    return res.status(400).json({ erro: "Usuário já existe" });
+  }
+  const { nanoid } = await import("nanoid");
+  const novo = {
+    id: nanoid(8),
+    usuario,
+    senha: await bcrypt.hash(senha, 10),
+    admin: admin === true || admin === "true" || admin === "1" || admin === 1,
+    foto: null,
+  };
+  if (req.file) {
+    const buffer = await toWebp(req.file.buffer);
+    req.file.buffer = null;
+    novo.foto = `data:image/webp;base64,${buffer.toString('base64')}`;
+  }
+  usuarios.push(novo);
+  await salvarUsuarios(usuarios);
+  const isAdmin = novo.admin;
+  await registrarAcao(req, `Criou usuário ${usuario} (admin=${isAdmin})`);
+  res.status(201).json({ id: novo.id, usuario: novo.usuario, admin: novo.admin });
+});
+
+app.put("/api/usuarios/:id", authRequired, adminRequired, upload.single("foto"), async (req, res) => {
+  const { usuario, senha, admin } = req.body;
+  const usuarios = await obterUsuarios();
+  const index = usuarios.findIndex((u) => u.id === req.params.id);
+  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
+  if (usuario) {
+    if (usuarios.some((u, i) => u.usuario === usuario && i !== index)) {
+      return res.status(400).json({ erro: "Usuário já existe" });
+    }
+    usuarios[index].usuario = usuario;
+  }
+  if (senha) usuarios[index].senha = await bcrypt.hash(senha, 10);
+  if (admin !== undefined) {
+    usuarios[index].admin = admin === true || admin === "true" || admin === "1" || admin === 1;
+  }
+  if (req.file) {
+    const buffer = await toWebp(req.file.buffer);
+    req.file.buffer = null;
+    usuarios[index].foto = `data:image/webp;base64,${buffer.toString('base64')}`;
+  }
+  await salvarUsuarios(usuarios);
+  const { senha: s, ...usuarioResp } = usuarios[index];
+  res.json(usuarioResp);
+});
+
+app.delete("/api/usuarios/:id", authRequired, adminRequired, async (req, res) => {
+  const usuarios = await obterUsuarios();
+  const index = usuarios.findIndex((u) => u.id === req.params.id);
+  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
+  usuarios.splice(index, 1);
+  await salvarUsuarios(usuarios);
+  res.json({ mensagem: "Usuário removido" });
 });
 
 // Logs (admin)
@@ -586,7 +588,7 @@ app.get("/api/templates/:id", async (req, res, next) => {
     const caminhoTemplate = path.join(__dirname, "templates", templateId);
     try {
       const conteudo = await fs.readFile(caminhoTemplate, "utf8");
-      res.json({ id: templateId, conteudo });
+      res.json({ id: templateId, cnteudo });
     } catch (error) {
       if (error.code === "ENOENT") {
         return res.status(404).json({ erro: "Template não encontrado" });
@@ -1114,7 +1116,9 @@ app.get("*", (req, res) => {
 
 // Middleware de tratamento de erros genérico
 app.use((err, req, res, next) => {
-  console.error("Erro detectado pelo Middleware:", err);
+  const user = req.session?.usuario?.usuario || 'desconhecido';
+  const ip = req.ip;
+  console.error(`Erro detectado pelo Middleware para ${user} (${ip}):`, err);
   // Se o erro for do Puppeteer, pode ser útil logar a causa
   if (err.message && (err.message.includes("Protocol error") || err.message.includes("Target closed"))) {
       console.error("Detalhes do erro Puppeteer:", err.cause || "Nenhuma causa específica informada");
