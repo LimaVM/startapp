@@ -19,6 +19,8 @@ const puppeteer = require("puppeteer"); // PDF generation - Garante que está us
 const session = require("express-session");
 const compression = require("compression");
 const helmet = require("helmet");
+const xssClean = require("xss-clean");
+const sanitizeHtml = require("sanitize-html");
 const bcrypt = require("bcrypt");
 const app = express();
 
@@ -67,12 +69,34 @@ process.on("SIGINT", () => {
 // Configuração do middleware para processar JSON e dados de formulário
 app.use(express.json({ limit: "100mb" })); // Aumenta limite para JSON (Base64)
 app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+app.use(xssClean());
+app.use((req, res, next) => {
+  const sanitizeObject = (obj) => {
+    if (Array.isArray(obj)) return obj.map(sanitizeObject);
+    if (obj && typeof obj === 'object') {
+      for (const k of Object.keys(obj)) {
+        obj[k] = sanitizeObject(obj[k]);
+      }
+      return obj;
+    }
+    return typeof obj === 'string'
+      ? sanitizeHtml(obj, { allowedTags: [], allowedAttributes: {} })
+      : obj;
+  };
+  if (req.body) req.body = sanitizeObject(req.body);
+  if (req.query) req.query = sanitizeObject(req.query);
+  next();
+});
 app.use(compression());
 app.use(helmet());
 
+const sessionSecret = process.env.SESSION_SECRET || 'startorcamentos-secret';
+if (sessionSecret === 'startorcamentos-secret' && process.env.NODE_ENV === 'production') {
+  console.warn('SESSION_SECRET não definido. Usando valor padrão e inseguro.');
+}
 app.use(
   session({
-    secret: "startorcamentos-secret",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }, // mantém sessão por 30 dias
