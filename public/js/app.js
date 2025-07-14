@@ -362,6 +362,25 @@ async function buscarCep() {
   }
 }
 
+async function buscarCnpj() {
+  const cnpj = clienteCpf.value.replace(/\D/g, '');
+  if (cnpj.length !== 14 || !navigator.onLine) return;
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const nome = data.nome_fantasia || data.razao_social;
+    if (!clienteNome.value && nome) clienteNome.value = nome;
+    const endereco = `${data.logradouro}${data.numero ? ', ' + data.numero : ''}, ${data.bairro}, ${data.municipio} - ${data.uf}`.trim();
+    if (!clienteEndereco.value && data.logradouro) clienteEndereco.value = endereco;
+    if (!clienteCep.value && data.cep) clienteCep.value = data.cep;
+    if (!clienteTelefone.value && data.ddd_telefone_1) clienteTelefone.value = data.ddd_telefone_1;
+    if (!clienteEmail.value && data.email) clienteEmail.value = data.email;
+  } catch (err) {
+    console.error('Erro ao buscar CNPJ', err);
+  }
+}
+
 
 function atualizarEstadoBotaoProximo() {
   const tabAtual = document.querySelector(".tab-btn.active");
@@ -421,20 +440,13 @@ async function verificarSessao() {
       configurarMenuAdmin();
       loginModal.classList.remove('active');
     } else {
-      const stored = localStorage.getItem('usuarioAtual');
-      if (stored) {
-        usuarioAtual = JSON.parse(stored);
-        iniciarAplicacao();
-        configurarMenuAdmin();
-        loginModal.classList.remove('active');
-      } else {
-        loginModal.classList.add('active');
-        if (loginForm) {
-          loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await realizarLogin();
-          });
-        }
+      localStorage.removeItem('usuarioAtual');
+      loginModal.classList.add('active');
+      if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          await realizarLogin();
+        });
       }
     }
   } catch (e) {
@@ -858,6 +870,7 @@ function initOrcamentoModal() {
   }
   if (clienteCpf) {
     clienteCpf.addEventListener('input', () => validarCpfCnpj());
+    clienteCpf.addEventListener('blur', buscarCnpj);
   }
   if (clienteCep) {
     clienteCep.addEventListener('blur', buscarCep);
@@ -1148,12 +1161,15 @@ async function carregarOrcamentos(forceReload = false) {
   
   try {
     const response = await fetchWithNoCache("/api/orcamentos");
-    if (!response.ok) throw new Error("Erro ao buscar orçamentos");
-    orcamentosCache = await response.json();
+    if (response.ok) {
+      orcamentosCache = await response.json();
+    } else {
+      console.warn('Não foi possível obter orçamentos:', response.status);
+      orcamentosCache = [];
+    }
     renderizarOrcamentos();
   } catch (error) {
-    console.error("Erro ao carregar orçamentos:", error);
-    mostrarToast("Erro ao carregar orçamentos.", "error");
+    console.error('Falha ao carregar orçamentos', error);
     orcamentosCache = [];
     renderizarOrcamentos();
   }
@@ -1690,7 +1706,7 @@ async function baixarPdfOrcamento() {
   }
   iniciarProgressoPdf();
   try {
-    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`);
+    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`, { cache: 'no-cache' });
     if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || `Erro ${response.status} ao gerar PDF`);
@@ -1728,7 +1744,7 @@ async function compartilharPdfOrcamento() {
   }
   iniciarProgressoPdf();
   try {
-    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`);
+    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`, { cache: 'no-cache' });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(errorText || `Erro ${response.status} ao gerar PDF`);
@@ -1977,15 +1993,17 @@ function mostrarConfirmacao(mensagem) {
 async function carregarUsuarios() {
   try {
     const res = await fetch('/api/usuarios');
-    if (!res.ok) throw new Error('Erro ao buscar usuários');
-    usuariosCache = await res.json();
-    renderizarUsuarios();
+    if (res.ok) {
+      usuariosCache = await res.json();
+    } else {
+      console.warn('Não foi possível obter usuários:', res.status);
+      usuariosCache = [];
+    }
   } catch (err) {
     console.error('Falha ao carregar usuários', err);
-    mostrarToast('Erro ao carregar usuários');
     usuariosCache = [];
-    renderizarUsuarios();
   }
+  renderizarUsuarios();
 }
 
 function renderizarUsuarios() {
@@ -2067,15 +2085,17 @@ document.querySelectorAll('#usuario-modal .modal-close, #usuario-modal .modal-ca
 async function carregarRegistros() {
   try {
     const res = await fetch('/api/logs');
-    if (!res.ok) throw new Error('Erro ao buscar registros');
-    registrosCache = await res.json();
-    renderizarRegistros();
+    if (res.ok) {
+      registrosCache = await res.json();
+    } else {
+      console.warn('Não foi possível obter registros:', res.status);
+      registrosCache = [];
+    }
   } catch (err) {
     console.error('Falha ao carregar registros', err);
-    mostrarToast('Erro ao carregar registros');
     registrosCache = [];
-    renderizarRegistros();
   }
+  renderizarRegistros();
 }
 
 function renderizarRegistros() {
@@ -2098,13 +2118,15 @@ async function carregarPerfil() {
   if (!perfilForm) return;
   try {
     const res = await fetch('/api/usuarios/me');
-    if (!res.ok) throw new Error('Erro ao carregar perfil');
-    const user = await res.json();
-    perfilNome.value = user.usuario;
-    if (user.foto) perfilFotoPreview.src = user.foto;
+    if (res.ok) {
+      const user = await res.json();
+      perfilNome.value = user.usuario;
+      if (user.foto) perfilFotoPreview.src = user.foto;
+    } else {
+      console.warn('Não foi possível carregar perfil:', res.status);
+    }
   } catch (err) {
-    console.error(err);
-    mostrarToast('Erro ao carregar perfil');
+    console.error('Erro ao carregar perfil', err);
   }
 }
 
