@@ -23,10 +23,13 @@ const xssClean = require("xss-clean");
 const sanitizeHtml = require("sanitize-html");
 const bcrypt = require("bcrypt");
 const { randomBytes } = require("crypto");
+const rateLimit = require("express-rate-limit");
+const hpp = require("hpp");
 const app = express();
 
 const APP_VERSION = '2.0.2';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 let browserInstance = null;
 
@@ -72,6 +75,7 @@ process.on("SIGINT", () => {
 app.use(express.json({ limit: "100mb" })); // Aumenta limite para JSON (Base64)
 app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 app.use(xssClean());
+app.use(hpp());
 app.use((req, res, next) => {
   const sanitizeObject = (obj) => {
     if (Array.isArray(obj)) return obj.map(sanitizeObject);
@@ -102,9 +106,34 @@ app.use(
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }, // mantém sessão por 30 dias
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: IS_PROD,
+    },
   })
 );
+
+const loginLimiter = IS_PROD
+  ? rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 5,
+      message: { erro: 'Muitas tentativas de login, tente mais tarde.' },
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+  : (req, res, next) => next();
+
+const apiLimiter = IS_PROD
+  ? rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 200,
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+  : (req, res, next) => next();
+
+app.use('/api', apiLimiter);
 
 // Configuração para servir arquivos estáticos com estratégia anti-cache inteligente
 app.use(express.static(path.join(__dirname, "public"), {
@@ -338,7 +367,7 @@ function adminRequired(req, res, next) {
 }
 
 // --- Rotas de Login e Usuários --- //
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", loginLimiter, async (req, res) => {
   const { usuario, senha } = req.body;
   if (!usuario || !senha) {
     return res.status(400).json({ erro: "Credenciais inválidas" });
