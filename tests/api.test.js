@@ -1,5 +1,6 @@
 const request = require('supertest');
 const app = require('../server');
+const path = require('path');
 
 describe('GET /api/produtos', () => {
   it('retorna status 200 e um array', async () => {
@@ -32,6 +33,7 @@ describe('POST /api/usuarios', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.usuario).toBe('dev lima');
+    expect(res.body.admin).toBe(false);
 
     await agent.delete(`/api/usuarios/${res.body.id}`).expect(200);
   });
@@ -50,4 +52,43 @@ describe('POST /api/logout', () => {
     const res = await agent.get('/api/session');
     expect(res.body.autenticado).toBe(false);
   });
+});
+
+describe('PUT /api/usuarios/me', () => {
+  it('permite alterar nome, senha e foto', async () => {
+    const agent = request.agent(app);
+
+    await agent
+      .post('/api/login')
+      .send({ usuario: 'start', senha: 'start' })
+      .expect(200);
+
+    await agent
+      .put('/api/usuarios/me')
+      .field('usuario', 'startx')
+      .field('senha', 'startx')
+      .attach('foto', path.join(__dirname, '..', 'public', 'images', 'placeholder.png'))
+      .expect(200);
+
+    await agent.post('/api/logout').expect(200);
+
+    await agent
+      .post('/api/login')
+      .send({ usuario: 'startx', senha: 'startx' })
+      .expect(200);
+
+    await agent
+      .put('/api/usuarios/me')
+      .field('usuario', 'start')
+      .field('senha', 'start')
+      .attach('foto', path.join(__dirname, '..', 'public', 'images', 'placeholder.png'))
+      .expect(200);
+
+    await agent.post('/api/logout').expect(200);
+
+    await agent
+      .post('/api/login')
+      .send({ usuario: 'start', senha: 'start' })
+      .expect(200);
+  }, 10000);
 });

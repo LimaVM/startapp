@@ -18,15 +18,25 @@ const ejs = require("ejs"); // Template engine
 const puppeteer = require("puppeteer"); // PDF generation - Garante que está usando o pacote completo
 const session = require("express-session");
 const compression = require("compression");
+const helmet = require("helmet");
+const xssClean = require("xss-clean");
+const sanitizeHtml = require("sanitize-html");
 const bcrypt = require("bcrypt");
+const { randomBytes } = require("crypto");
+const rateLimit = require("express-rate-limit");
+const hpp = require("hpp");
 const app = express();
+
+const APP_VERSION = '2.0.2';
+const SERVER_INSTANCE = randomBytes(4).toString('hex');
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 let browserInstance = null;
 
 async function getBrowser() {
   if (!browserInstance) {
     browserInstance = await puppeteer.launch({
-      executablePath: "/usr/bin/chromium-browser",
+      executablePath: "/usr/bin/ungoogled-chromium", // Chromium ARM64 nativo
       headless: true,
       args: [
         "--no-sandbox",
@@ -40,6 +50,7 @@ async function getBrowser() {
   }
   return browserInstance;
 }
+
 
 async function closeBrowser() {
   if (browserInstance) {
@@ -63,16 +74,66 @@ process.on("SIGINT", () => {
 // Configuração do middleware para processar JSON e dados de formulário
 app.use(express.json({ limit: "100mb" })); // Aumenta limite para JSON (Base64)
 app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+app.use(xssClean());
+app.use(hpp());
+app.use((req, res, next) => {
+  const sanitizeObject = (obj) => {
+    if (Array.isArray(obj)) return obj.map(sanitizeObject);
+    if (obj && typeof obj === 'object') {
+      for (const k of Object.keys(obj)) {
+        obj[k] = sanitizeObject(obj[k]);
+      }
+      return obj;
+    }
+    return typeof obj === 'string'
+      ? sanitizeHtml(obj, { allowedTags: [], allowedAttributes: {} })
+      : obj;
+  };
+  if (req.body) req.body = sanitizeObject(req.body);
+  if (req.query) req.query = sanitizeObject(req.query);
+  next();
+});
 app.use(compression());
+app.use(helmet());
 
+const baseSecret = process.env.SESSION_SECRET || 'startorcamentos-secret';
+if (baseSecret === 'startorcamentos-secret' && process.env.NODE_ENV === 'production') {
+  console.warn('SESSION_SECRET não definido. Usando valor padrão e inseguro.');
+}
+const sessionSecret = `${baseSecret}-${SERVER_INSTANCE}`;
 app.use(
   session({
-    secret: "startorcamentos-secret",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }, // mantém sessão por 30 dias
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: IS_PROD,
+    },
   })
 );
+
+const loginLimiter = IS_PROD
+  ? rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 5,
+      message: { erro: 'Muitas tentativas de login, tente mais tarde.' },
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+  : (req, res, next) => next();
+
+const apiLimiter = IS_PROD
+  ? rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 200,
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+  : (req, res, next) => next();
+
+app.use('/api', apiLimiter);
 
 // Configuração para servir arquivos estáticos com estratégia anti-cache inteligente
 app.use(express.static(path.join(__dirname, "public"), {
@@ -191,35 +252,27 @@ app.use('/api', (req, res, next) => {
 });
 
 // --- Funções Auxiliares --- //
-const jsonCache = {};
-
 async function lerArquivoJSON(filePath) {
-  if (jsonCache[filePath]) {
-    return jsonCache[filePath];
-  }
   try {
     const data = await fs.readFile(filePath, "utf8");
-    jsonCache[filePath] = JSON.parse(data);
+    return JSON.parse(data);
   } catch (error) {
     if (error.code === "ENOENT") {
       console.warn(`Arquivo ${filePath} não encontrado, retornando array vazio.`);
-      jsonCache[filePath] = [];
-    } else {
-      console.error(`Erro ao ler arquivo ${filePath}:`, error);
-      throw new Error(`Falha ao ler arquivo JSON: ${filePath}`); // Lança erro para ser tratado
+      return [];
     }
+    console.error(`Erro ao ler arquivo ${filePath}:`, error);
+    throw new Error(`Falha ao ler arquivo JSON: ${filePath}`);
   }
-  return jsonCache[filePath];
 }
 
 async function escreverArquivoJSON(filePath, data) {
-  jsonCache[filePath] = data;
   try {
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
     return true;
   } catch (error) {
     console.error(`Erro ao escrever arquivo ${filePath}:`, error);
-    throw new Error(`Falha ao escrever arquivo JSON: ${filePath}`); // Lança erro
+    throw new Error(`Falha ao escrever arquivo JSON: ${filePath}`);
   }
 }
 
@@ -314,7 +367,7 @@ function adminRequired(req, res, next) {
 }
 
 // --- Rotas de Login e Usuários --- //
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", loginLimiter, async (req, res) => {
   const { usuario, senha } = req.body;
   if (!usuario || !senha) {
     return res.status(400).json({ erro: "Credenciais inválidas" });
@@ -343,69 +396,8 @@ app.get("/api/session", (req, res) => {
   }
 });
 
-// CRUD de usuários (admin)
-app.get("/api/usuarios", authRequired, adminRequired, async (req, res) => {
-  const usuarios = await obterUsuarios();
-  const semSenha = usuarios.map(({ senha, ...rest }) => rest);
-  res.json(semSenha);
-});
-
-app.post("/api/usuarios", authRequired, adminRequired, upload.single("foto"), async (req, res) => {
-  const { usuario, senha, admin } = req.body;
-  if (!usuario || !senha) return res.status(400).json({ erro: "Dados inválidos" });
-  const usuarios = await obterUsuarios();
-  if (usuarios.find((u) => u.usuario === usuario)) {
-    return res.status(400).json({ erro: "Usuário já existe" });
-  }
-  const { nanoid } = await import("nanoid");
-  const novo = {
-    id: nanoid(8),
-    usuario,
-    senha: await bcrypt.hash(senha, 10),
-    admin: !!admin,
-    foto: null,
-  };
-  if (req.file) {
-    const buffer = await toWebp(req.file.buffer);
-    req.file.buffer = null;
-    novo.foto = `data:image/webp;base64,${buffer.toString('base64')}`;
-  }
-  usuarios.push(novo);
-  await salvarUsuarios(usuarios);
-  await registrarAcao(req, `Criou usuário ${usuario} (admin=${!!admin})`);
-  res.status(201).json({ id: novo.id, usuario: novo.usuario, admin: novo.admin });
-});
-
-app.put("/api/usuarios/:id", authRequired, adminRequired, upload.single("foto"), async (req, res) => {
-  const { usuario, senha, admin } = req.body;
-  const usuarios = await obterUsuarios();
-  const index = usuarios.findIndex((u) => u.id === req.params.id);
-  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
-  if (usuario) {
-    if (usuarios.some((u, i) => u.usuario === usuario && i !== index)) {
-      return res.status(400).json({ erro: "Usuário já existe" });
-    }
-    usuarios[index].usuario = usuario;
-  }
-  if (senha) usuarios[index].senha = await bcrypt.hash(senha, 10);
-  if (admin !== undefined) usuarios[index].admin = !!admin;
-  if (req.file) {
-    const buffer = await toWebp(req.file.buffer);
-    req.file.buffer = null;
-    usuarios[index].foto = `data:image/webp;base64,${buffer.toString('base64')}`;
-  }
-  await salvarUsuarios(usuarios);
-  const { senha: s, ...usuarioResp } = usuarios[index];
-  res.json(usuarioResp);
-});
-
-app.delete("/api/usuarios/:id", authRequired, adminRequired, async (req, res) => {
-  const usuarios = await obterUsuarios();
-  const index = usuarios.findIndex((u) => u.id === req.params.id);
-  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
-  usuarios.splice(index, 1);
-  await salvarUsuarios(usuarios);
-  res.json({ mensagem: "Usuário removido" });
+app.get('/api/version', (req, res) => {
+  res.json({ version: APP_VERSION, instance: SERVER_INSTANCE });
 });
 
 // Perfil do usuário logado
@@ -438,6 +430,74 @@ app.put("/api/usuarios/me", authRequired, upload.single("foto"), async (req, res
   await salvarUsuarios(usuarios);
   const { senha: s, ...updatedUser } = usuarios[index];
   res.json(updatedUser);
+});
+
+// CRUD de usuários (admin)
+app.get("/api/usuarios", authRequired, adminRequired, async (req, res) => {
+  const usuarios = await obterUsuarios();
+  const semSenha = usuarios.map(({ senha, ...rest }) => rest);
+  res.json(semSenha);
+});
+
+app.post("/api/usuarios", authRequired, adminRequired, upload.single("foto"), async (req, res) => {
+  const { usuario, senha, admin } = req.body;
+  if (!usuario || !senha) return res.status(400).json({ erro: "Dados inválidos" });
+  const usuarios = await obterUsuarios();
+  if (usuarios.find((u) => u.usuario === usuario)) {
+    return res.status(400).json({ erro: "Usuário já existe" });
+  }
+  const { nanoid } = await import("nanoid");
+  const novo = {
+    id: nanoid(8),
+    usuario,
+    senha: await bcrypt.hash(senha, 10),
+    admin: admin === true || admin === "true" || admin === "1" || admin === 1,
+    foto: null,
+  };
+  if (req.file) {
+    const buffer = await toWebp(req.file.buffer);
+    req.file.buffer = null;
+    novo.foto = `data:image/webp;base64,${buffer.toString('base64')}`;
+  }
+  usuarios.push(novo);
+  await salvarUsuarios(usuarios);
+  const isAdmin = novo.admin;
+  await registrarAcao(req, `Criou usuário ${usuario} (admin=${isAdmin})`);
+  res.status(201).json({ id: novo.id, usuario: novo.usuario, admin: novo.admin });
+});
+
+app.put("/api/usuarios/:id", authRequired, adminRequired, upload.single("foto"), async (req, res) => {
+  const { usuario, senha, admin } = req.body;
+  const usuarios = await obterUsuarios();
+  const index = usuarios.findIndex((u) => u.id === req.params.id);
+  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
+  if (usuario) {
+    if (usuarios.some((u, i) => u.usuario === usuario && i !== index)) {
+      return res.status(400).json({ erro: "Usuário já existe" });
+    }
+    usuarios[index].usuario = usuario;
+  }
+  if (senha) usuarios[index].senha = await bcrypt.hash(senha, 10);
+  if (admin !== undefined) {
+    usuarios[index].admin = admin === true || admin === "true" || admin === "1" || admin === 1;
+  }
+  if (req.file) {
+    const buffer = await toWebp(req.file.buffer);
+    req.file.buffer = null;
+    usuarios[index].foto = `data:image/webp;base64,${buffer.toString('base64')}`;
+  }
+  await salvarUsuarios(usuarios);
+  const { senha: s, ...usuarioResp } = usuarios[index];
+  res.json(usuarioResp);
+});
+
+app.delete("/api/usuarios/:id", authRequired, adminRequired, async (req, res) => {
+  const usuarios = await obterUsuarios();
+  const index = usuarios.findIndex((u) => u.id === req.params.id);
+  if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
+  usuarios.splice(index, 1);
+  await salvarUsuarios(usuarios);
+  res.json({ mensagem: "Usuário removido" });
 });
 
 // Logs (admin)
@@ -586,7 +646,7 @@ app.get("/api/templates/:id", async (req, res, next) => {
     const caminhoTemplate = path.join(__dirname, "templates", templateId);
     try {
       const conteudo = await fs.readFile(caminhoTemplate, "utf8");
-      res.json({ id: templateId, conteudo });
+      res.json({ id: templateId, cnteudo });
     } catch (error) {
       if (error.code === "ENOENT") {
         return res.status(404).json({ erro: "Template não encontrado" });
@@ -772,7 +832,7 @@ app.post("/api/orcamentos", authRequired, async (req, res, next) => {
 app.put("/api/orcamentos/:id", authRequired, async (req, res, next) => {
   try {
     const orcamentoId = req.params.id;
-    const {
+  const {
       nomeCliente,
       cepCliente,
       enderecoCliente,
@@ -784,6 +844,10 @@ app.put("/api/orcamentos/:id", authRequired, async (req, res, next) => {
       observacoes,
       tipoDesconto,
       valorDesconto,
+      formaPagamento,
+      avistaTipo,
+      parcelas,
+      jurosMes,
     } = req.body;
 
     if (!nomeCliente || !templateId || !Array.isArray(produtosInput) || produtosInput.length === 0) {
@@ -834,6 +898,16 @@ app.put("/api/orcamentos/:id", authRequired, async (req, res, next) => {
     }
     descontoCalculado = Math.min(descontoCalculado, valorTotalBruto);
     const valorTotalFinal = valorTotalBruto - descontoCalculado;
+
+    const modoPg = formaPagamento === 'prazo' ? 'prazo' : 'avista';
+    const numParcelas = parseInt(parcelas, 10) || 1;
+    const juros = parseFloat(jurosMes) || 0;
+    let valorTotalComJuros = valorTotalFinal;
+    let valorParcela = valorTotalFinal;
+    if (modoPg === 'prazo') {
+      valorTotalComJuros = valorTotalFinal * (1 + (juros / 100) * numParcelas);
+      valorParcela = valorTotalComJuros / numParcelas;
+    }
 
     const orcamentos = await lerArquivoJSON(path.join(__dirname, "data", "orcamentos.json"));
     const index = orcamentos.findIndex(o => o.id === orcamentoId);
@@ -1114,7 +1188,9 @@ app.get("*", (req, res) => {
 
 // Middleware de tratamento de erros genérico
 app.use((err, req, res, next) => {
-  console.error("Erro detectado pelo Middleware:", err);
+  const user = req.session?.usuario?.usuario || 'desconhecido';
+  const ip = req.ip;
+  console.error(`Erro detectado pelo Middleware para ${user} (${ip}):`, err);
   // Se o erro for do Puppeteer, pode ser útil logar a causa
   if (err.message && (err.message.includes("Protocol error") || err.message.includes("Target closed"))) {
       console.error("Detalhes do erro Puppeteer:", err.cause || "Nenhuma causa específica informada");

@@ -17,9 +17,14 @@ Um aplicativo web progressivo (PWA) moderno para criação e gerenciamento de or
 
 - HTML5, CSS3 e JavaScript moderno
 - Express.js para o backend
+- Helmet para reforçar a segurança HTTP
+- xss-clean e sanitize-html para prevenir injeção XSS
+- express-rate-limit para limitar tentativas e ataques de força bruta
+- hpp para evitar poluição de parâmetros
 - Armazenamento de dados em JSON
 - Geração de PDF com Puppeteer
 - Service Worker para funcionalidades offline
+- Biblioteca de ícones Material Icons embutida em base64 para funcionar offline sem arquivos binários
 - Design responsivo com Flexbox e CSS Grid
 
 ## Estrutura do Projeto
@@ -72,6 +77,30 @@ O arquivo `variaveis_template.txt` contém todas as variáveis disponíveis para
    ```
 4. O servidor escuta nas portas 80 e 443 (HTTPS). Acesse em `https://seu_dominio`
 5. Faça login com o usuário padrão `start` e senha `start`
+
+Sempre que o servidor é reiniciado, um identificador único é criado e todas as
+sessões anteriores tornam-se inválidas. O navegador remove o cache automaticamente
+ao detectar uma nova instância do servidor.
+
+### Dependências para geração de PDF (Ubuntu)
+
+Ao gerar PDFs o projeto utiliza o Puppeteer com o navegador Chromium. Em algumas
+instalações do Ubuntu o binário `/usr/bin/chromium-browser` não está presente e
+aparecem erros semelhantes a:
+
+```
+Erro ao baixar PDF: {"erro":"Failed to launch the browser process!\n/usr/bin/chromium-browser: 12: xdg-settings: not found"}
+```
+
+Para resolver instale o Chromium e bibliotecas necessárias:
+
+```bash
+sudo apt install -y chromium-browser libgbm1 xdg-utils
+```
+
+Certifique-se de que o comando `chromium` ou `chromium-browser` funcione em seu
+sistema. Se continuar com problemas, consulte o guia oficial em
+<https://pptr.dev/troubleshooting>.
 
 ## Responsividade
 

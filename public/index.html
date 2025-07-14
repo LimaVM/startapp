@@ -15,12 +15,12 @@
   
   <!-- Manifest para PWA -->
   <link rel="manifest" href="/manifest.json">
-  <link rel="preload" href="/css/modern-style.css?v=2.0.0" as="style">
-  <link rel="preload" href="/js/app.js?v=2.0.0" as="script">
-  <link rel="prefetch" href="/js/jspdf.umd.min.js?v=2.0.0" as="script">
+  <link rel="preload" href="/css/modern-style.css?v=2.0.2" as="style">
+  <link rel="preload" href="/js/app.js?v=2.0.2" as="script">
+  <link rel="prefetch" href="/js/jspdf.umd.min.js?v=2.0.2" as="script">
   
   <!-- Estilos CSS com versionamento anti-cache -->
-  <link rel="stylesheet" href="/css/modern-style.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/modern-style.css?v=2.0.2">
   
   <!-- Fonte Inter do Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,8 +28,8 @@
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" as="style">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- Ícones Material -->
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- Ícones Material - carregados localmente para funcionar offline -->
+  <link rel="stylesheet" href="/fonts/material-icons.css?v=2.0.2">
 </head>
 <body>
   <!-- Cabeçalho do aplicativo -->
@@ -731,40 +731,94 @@
   </div>
 
   <!-- Scripts com versionamento anti-cache -->
-  <script src="/js/jspdf.umd.min.js?v=2.0.0" defer></script>
-  <script src="/js/app.js?v=2.0.0" defer></script>
+  <script src="/js/jspdf.umd.min.js?v=2.0.2" defer></script>
+  <script src="/js/app.js?v=2.0.2" defer></script>
   <script>
     // Registra o service worker para PWA com estratégia de atualização
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js?v=2.0.0')
-          .then(registration => {
-            console.log('Service Worker registrado com sucesso:', registration);
-            
-            // Escuta atualizações do service worker
-            registration.addEventListener('updatefound', () => {
-              const newWorker = registration.installing;
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // Nova versão disponível
+        fetch('/api/version')
+          .then(r => r.json())
+          .then(({ version, instance }) => {
+            const compare = (a, b) => {
+              if (!b) return 1;
+              const pa = a.split('.').map(Number);
+              const pb = b.split('.').map(Number);
+              for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+                const diff = (pa[i] || 0) - (pb[i] || 0);
+                if (diff !== 0) return diff > 0 ? 1 : -1;
+              }
+              return 0;
+            };
+            const storedVersion = localStorage.getItem('appVersion');
+            const storedInstance = localStorage.getItem('serverInstance');
+            const shouldPrompt = storedVersion && compare(version, storedVersion) > 0;
+
+            if (storedInstance && storedInstance !== instance) {
+              Promise.all([
+                fetch('/api/logout', { method: 'POST' }).catch(() => {}),
+                'caches' in window ? caches.keys().then(n => Promise.all(n.map(k => caches.delete(k)))) : Promise.resolve()
+              ]).finally(() => {
+                localStorage.setItem('serverInstance', instance);
+                localStorage.setItem('appVersion', version);
+                window.location.reload(true);
+              });
+              return;
+            }
+
+            localStorage.setItem('serverInstance', instance);
+            return navigator.serviceWorker.register(`/service-worker.js?v=${version}&i=${instance}`)
+              .then(registration => {
+                console.log('Service Worker registrado com sucesso:', registration);
+
+                function promptUpdate(worker) {
                   if (confirm('Nova versão disponível! Deseja atualizar agora?')) {
-                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                    window.location.reload();
+                    fetch('/api/logout', { method: 'POST' })
+                      .finally(() => {
+                        const finish = () => {
+                          worker.postMessage({ type: 'SKIP_WAITING' });
+                          localStorage.setItem('appVersion', version);
+                          window.location.reload(true);
+                        };
+                        if ('caches' in window) {
+                          caches.keys()
+                            .then(names => Promise.all(names.map(n => caches.delete(n))))
+                            .finally(finish);
+                        } else {
+                          finish();
+                        }
+                      });
                   }
                 }
+
+                if (shouldPrompt) {
+                  if (registration.waiting) {
+                    promptUpdate(registration.waiting);
+                  } else {
+                    registration.addEventListener('updatefound', () => {
+                      const newWorker = registration.installing;
+                      newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                          promptUpdate(newWorker);
+                        }
+                      });
+                    });
+                  }
+                } else if (!storedVersion) {
+                  localStorage.setItem('appVersion', version);
+                }
+
+                navigator.serviceWorker.addEventListener('message', event => {
+                  if (event.data && event.data.type === 'SW_UPDATED') {
+                    localStorage.setItem('appVersion', event.data.version);
+                    console.log('Service Worker atualizado para versão:', event.data.version);
+                  }
+                });
               });
-            });
           })
           .catch(error => {
             console.log('Falha ao registrar o Service Worker:', error);
           });
-          
-        // Escuta mensagens do service worker
-        navigator.serviceWorker.addEventListener('message', event => {
-          if (event.data && event.data.type === 'SW_UPDATED') {
-            console.log('Service Worker atualizado para versão:', event.data.version);
-          }
-        });
       });
     }
     
