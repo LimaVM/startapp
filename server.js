@@ -369,15 +369,25 @@ function adminRequired(req, res, next) {
 // --- Rotas de Login e Usuários --- //
 app.post("/api/login", loginLimiter, async (req, res) => {
   const { usuario, senha } = req.body;
+  const ip = req.ip;
   if (!usuario || !senha) {
+    console.log(`[LOGIN FAIL] ${ip} - credenciais incompletas para "${usuario || 'desconhecido'}"`);
     return res.status(400).json({ erro: "Credenciais inválidas" });
   }
   const usuarios = await obterUsuarios();
   const found = usuarios.find((u) => u.usuario === usuario);
-  if (!found) return res.status(401).json({ erro: "Usuário ou senha incorretos" });
+  if (!found) {
+    console.log(`[LOGIN FAIL] ${ip} - usuário inexistente "${usuario}"`);
+    return res.status(401).json({ erro: "Usuário ou senha incorretos" });
+  }
   const ok = await bcrypt.compare(senha, found.senha);
-  if (!ok) return res.status(401).json({ erro: "Usuário ou senha incorretos" });
+  if (!ok) {
+    console.log(`[LOGIN FAIL] ${ip} - senha incorreta para "${usuario}"`);
+    return res.status(401).json({ erro: "Usuário ou senha incorretos" });
+  }
   req.session.usuario = { id: found.id, usuario: found.usuario, admin: found.admin };
+  console.log(`[LOGIN OK] ${ip} - usuário "${usuario}" logado`);
+  await registrarAcao(req, 'Login realizado');
   res.json({ id: found.id, usuario: found.usuario, admin: found.admin });
 });
 
