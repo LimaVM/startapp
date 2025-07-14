@@ -774,7 +774,7 @@ app.post("/api/orcamentos", authRequired, async (req, res, next) => {
 app.put("/api/orcamentos/:id", authRequired, async (req, res, next) => {
   try {
     const orcamentoId = req.params.id;
-    const {
+  const {
       nomeCliente,
       cepCliente,
       enderecoCliente,
@@ -786,6 +786,10 @@ app.put("/api/orcamentos/:id", authRequired, async (req, res, next) => {
       observacoes,
       tipoDesconto,
       valorDesconto,
+      formaPagamento,
+      avistaTipo,
+      parcelas,
+      jurosMes,
     } = req.body;
 
     if (!nomeCliente || !templateId || !Array.isArray(produtosInput) || produtosInput.length === 0) {
@@ -836,6 +840,16 @@ app.put("/api/orcamentos/:id", authRequired, async (req, res, next) => {
     }
     descontoCalculado = Math.min(descontoCalculado, valorTotalBruto);
     const valorTotalFinal = valorTotalBruto - descontoCalculado;
+
+    const modoPg = formaPagamento === 'prazo' ? 'prazo' : 'avista';
+    const numParcelas = parseInt(parcelas, 10) || 1;
+    const juros = parseFloat(jurosMes) || 0;
+    let valorTotalComJuros = valorTotalFinal;
+    let valorParcela = valorTotalFinal;
+    if (modoPg === 'prazo') {
+      valorTotalComJuros = valorTotalFinal * (1 + (juros / 100) * numParcelas);
+      valorParcela = valorTotalComJuros / numParcelas;
+    }
 
     const orcamentos = await lerArquivoJSON(path.join(__dirname, "data", "orcamentos.json"));
     const index = orcamentos.findIndex(o => o.id === orcamentoId);
