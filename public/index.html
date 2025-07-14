@@ -755,34 +755,42 @@
             return navigator.serviceWorker.register(`/service-worker.js?v=${version}`)
               .then(registration => {
                 console.log('Service Worker registrado com sucesso:', registration);
-                if (shouldPrompt) {
-                  registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', () => {
-                      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        if (confirm('Nova versão disponível! Deseja atualizar agora?')) {
-                          fetch('/api/logout', { method: 'POST' })
-                            .finally(() => {
-                              if ('caches' in window) {
-                                caches.keys()
-                                  .then(names => Promise.all(names.map(n => caches.delete(n))))
-                                  .finally(() => {
-                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                    localStorage.setItem('appVersion', version);
-                                    window.location.reload(true);
-                                  });
-                              } else {
-                                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                localStorage.setItem('appVersion', version);
-                                window.location.reload(true);
-                              }
-                            });
+
+                function promptUpdate(worker) {
+                  if (confirm('Nova versão disponível! Deseja atualizar agora?')) {
+                    fetch('/api/logout', { method: 'POST' })
+                      .finally(() => {
+                        const finish = () => {
+                          worker.postMessage({ type: 'SKIP_WAITING' });
+                          localStorage.setItem('appVersion', version);
+                          window.location.reload(true);
+                        };
+                        if ('caches' in window) {
+                          caches.keys()
+                            .then(names => Promise.all(names.map(n => caches.delete(n))))
+                            .finally(finish);
+                        } else {
+                          finish();
                         }
-                      }
+                      });
+                  }
+                }
+
+                if (shouldPrompt) {
+                  if (registration.waiting) {
+                    promptUpdate(registration.waiting);
+                  } else {
+                    registration.addEventListener('updatefound', () => {
+                      const newWorker = registration.installing;
+                      newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                          promptUpdate(newWorker);
+                        }
+                      });
                     });
-                  });
-                } else {
-                  if (!stored) localStorage.setItem('appVersion', version);
+                  }
+                } else if (!stored) {
+                  localStorage.setItem('appVersion', version);
                 }
 
                 navigator.serviceWorker.addEventListener('message', event => {

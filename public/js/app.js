@@ -440,20 +440,13 @@ async function verificarSessao() {
       configurarMenuAdmin();
       loginModal.classList.remove('active');
     } else {
-      const stored = localStorage.getItem('usuarioAtual');
-      if (stored) {
-        usuarioAtual = JSON.parse(stored);
-        iniciarAplicacao();
-        configurarMenuAdmin();
-        loginModal.classList.remove('active');
-      } else {
-        loginModal.classList.add('active');
-        if (loginForm) {
-          loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await realizarLogin();
-          });
-        }
+      localStorage.removeItem('usuarioAtual');
+      loginModal.classList.add('active');
+      if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          await realizarLogin();
+        });
       }
     }
   } catch (e) {
