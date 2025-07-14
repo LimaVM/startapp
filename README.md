@@ -17,6 +17,7 @@ Um aplicativo web progressivo (PWA) moderno para criação e gerenciamento de or
 
 - HTML5, CSS3 e JavaScript moderno
 - Express.js para o backend
+- Helmet para reforçar a segurança HTTP
 - Armazenamento de dados em JSON
 - Geração de PDF com Puppeteer
 - Service Worker para funcionalidades offline

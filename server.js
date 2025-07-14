@@ -18,6 +18,7 @@ const ejs = require("ejs"); // Template engine
 const puppeteer = require("puppeteer"); // PDF generation - Garante que está usando o pacote completo
 const session = require("express-session");
 const compression = require("compression");
+const helmet = require("helmet");
 const bcrypt = require("bcrypt");
 const app = express();
 
@@ -67,6 +68,7 @@ process.on("SIGINT", () => {
 app.use(express.json({ limit: "100mb" })); // Aumenta limite para JSON (Base64)
 app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 app.use(compression());
+app.use(helmet());
 
 app.use(
   session({
