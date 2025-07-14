@@ -10,7 +10,8 @@
 
 // Versão do app e do cache - atualize manualmente a cada release
 const APP_VERSION = '2.0.1';
-const CACHE_VERSION = 'v2.0.1';
+const INSTANCE = new URL(self.location).searchParams.get('i') || '0';
+const CACHE_VERSION = 'v2.0.1-' + INSTANCE;
 const STATIC_CACHE = 'orcamentos-static-' + CACHE_VERSION;
 const DATA_CACHE = 'orcamentos-data-' + CACHE_VERSION;
 

@@ -75,6 +75,10 @@ O arquivo `variaveis_template.txt` contém todas as variáveis disponíveis para
 4. O servidor escuta nas portas 80 e 443 (HTTPS). Acesse em `https://seu_dominio`
 5. Faça login com o usuário padrão `start` e senha `start`
 
+Sempre que o servidor é reiniciado, um identificador único é criado e todas as
+sessões anteriores tornam-se inválidas. O navegador remove o cache automaticamente
+ao detectar uma nova instância do servidor.
+
 ### Dependências para geração de PDF (Ubuntu)
 
 Ao gerar PDFs o projeto utiliza o Puppeteer com o navegador Chromium. Em algumas

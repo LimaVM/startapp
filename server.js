@@ -22,9 +22,11 @@ const helmet = require("helmet");
 const xssClean = require("xss-clean");
 const sanitizeHtml = require("sanitize-html");
 const bcrypt = require("bcrypt");
+const { randomBytes } = require("crypto");
 const app = express();
 
 const APP_VERSION = '2.0.1';
+const SERVER_INSTANCE = randomBytes(4).toString('hex');
 
 let browserInstance = null;
 
@@ -90,10 +92,11 @@ app.use((req, res, next) => {
 app.use(compression());
 app.use(helmet());
 
-const sessionSecret = process.env.SESSION_SECRET || 'startorcamentos-secret';
-if (sessionSecret === 'startorcamentos-secret' && process.env.NODE_ENV === 'production') {
+const baseSecret = process.env.SESSION_SECRET || 'startorcamentos-secret';
+if (baseSecret === 'startorcamentos-secret' && process.env.NODE_ENV === 'production') {
   console.warn('SESSION_SECRET não definido. Usando valor padrão e inseguro.');
 }
+const sessionSecret = `${baseSecret}-${SERVER_INSTANCE}`;
 app.use(
   session({
     secret: sessionSecret,
@@ -365,7 +368,7 @@ app.get("/api/session", (req, res) => {
 });
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: APP_VERSION });
+  res.json({ version: APP_VERSION, instance: SERVER_INSTANCE });
 });
 
 // Perfil do usuário logado

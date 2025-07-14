@@ -739,7 +739,7 @@
       window.addEventListener('load', () => {
         fetch('/api/version')
           .then(r => r.json())
-          .then(({ version }) => {
+          .then(({ version, instance }) => {
             const compare = (a, b) => {
               if (!b) return 1;
               const pa = a.split('.').map(Number);
@@ -750,9 +750,24 @@
               }
               return 0;
             };
-            const stored = localStorage.getItem('appVersion');
-            const shouldPrompt = stored && compare(version, stored) > 0;
-            return navigator.serviceWorker.register(`/service-worker.js?v=${version}`)
+            const storedVersion = localStorage.getItem('appVersion');
+            const storedInstance = localStorage.getItem('serverInstance');
+            const shouldPrompt = storedVersion && compare(version, storedVersion) > 0;
+
+            if (storedInstance && storedInstance !== instance) {
+              Promise.all([
+                fetch('/api/logout', { method: 'POST' }).catch(() => {}),
+                'caches' in window ? caches.keys().then(n => Promise.all(n.map(k => caches.delete(k)))) : Promise.resolve()
+              ]).finally(() => {
+                localStorage.setItem('serverInstance', instance);
+                localStorage.setItem('appVersion', version);
+                window.location.reload(true);
+              });
+              return;
+            }
+
+            localStorage.setItem('serverInstance', instance);
+            return navigator.serviceWorker.register(`/service-worker.js?v=${version}&i=${instance}`)
               .then(registration => {
                 console.log('Service Worker registrado com sucesso:', registration);
 
@@ -789,7 +804,7 @@
                       });
                     });
                   }
-                } else if (!stored) {
+                } else if (!storedVersion) {
                   localStorage.setItem('appVersion', version);
                 }
 
