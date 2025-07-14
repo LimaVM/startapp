@@ -27,7 +27,7 @@ const rateLimit = require("express-rate-limit");
 const hpp = require("hpp");
 const app = express();
 
-const APP_VERSION = '2.0.2';
+const APP_VERSION = '2.0.3';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 const IS_PROD = process.env.NODE_ENV === 'production';
 
