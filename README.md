@@ -12,6 +12,7 @@ Um aplicativo web progressivo (PWA) moderno para criação e gerenciamento de or
 - Funcionamento offline (consulta a produtos e templates mesmo sem conexão, sem cadastro de novos dados)
 - Interface intuitiva e amigável
 - Sistema de login com usuários e permissões (admin pode gerenciar dados)
+- Preenchimento automático de dados de empresas via BrasilAPI ao informar o CNPJ
 
 ## Tecnologias Utilizadas
 

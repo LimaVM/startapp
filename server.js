@@ -29,7 +29,7 @@ const hpp = require("hpp");
 const fsSync = require("fs");
 const app = express();
 
-const APP_VERSION = '2.0.7';
+const APP_VERSION = '2.0.8';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 const IS_PROD = process.env.NODE_ENV === 'production';
 const DOMAIN = process.env.DOMAIN || 'start.devlimassh.shop';
@@ -104,7 +104,13 @@ const cspDirectives = helmet.contentSecurityPolicy.getDefaultDirectives();
 cspDirectives["script-src"] = ["'self'", "'unsafe-inline'"];
 cspDirectives["style-src"] = ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"];
 cspDirectives["font-src"] = ["'self'", "https://fonts.gstatic.com", "data:"];
-cspDirectives["connect-src"] = ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"];
+cspDirectives["connect-src"] = [
+  "'self'",
+  "https://fonts.googleapis.com",
+  "https://fonts.gstatic.com",
+  "https://viacep.com.br",
+  "https://brasilapi.com.br"
+];
 app.use(
   helmet({
     contentSecurityPolicy: { directives: cspDirectives }

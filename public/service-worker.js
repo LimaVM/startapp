@@ -5,13 +5,13 @@
  * offline do aplicativo, com estratégia anti-cache melhorada.
  * 
  * @author Manus
- * @version 2.0.7 - Estratégia anti-cache implementada
+ * @version 2.0.8 - Estratégia anti-cache implementada
  */
 
 // Versão do app e do cache - atualize manualmente a cada release
-const APP_VERSION = '2.0.7';
+const APP_VERSION = '2.0.8';
 const INSTANCE = new URL(self.location).searchParams.get('i') || '0';
-const CACHE_VERSION = 'v2.0.7-' + INSTANCE;
+const CACHE_VERSION = 'v2.0.8-' + INSTANCE;
 const STATIC_CACHE = 'orcamentos-static-' + CACHE_VERSION;
 const DATA_CACHE = 'orcamentos-data-' + CACHE_VERSION;
 

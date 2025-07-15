@@ -1,6 +1,6 @@
 {
   "name": "start-orcamentos",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "main": "server.js",
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
