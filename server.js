@@ -29,7 +29,7 @@ const hpp = require("hpp");
 const fsSync = require("fs");
 const app = express();
 
-const APP_VERSION = '2.0.9';
+const APP_VERSION = '2.0.10';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 const IS_PROD = process.env.NODE_ENV === 'production';
 const DOMAIN = process.env.DOMAIN || 'start.devlimassh.shop';
@@ -135,6 +135,26 @@ app.use(
     },
   })
 );
+
+const sseClients = [];
+
+function broadcast(event, data = {}) {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  sseClients.forEach(res => res.write(payload));
+}
+
+app.get('/api/events', authRequired, (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  res.write('event: connected\ndata: "ok"\n\n');
+  sseClients.push(res);
+  req.on('close', () => {
+    const idx = sseClients.indexOf(res);
+    if (idx !== -1) sseClients.splice(idx, 1);
+  });
+});
 
 const loginLimiter = IS_PROD
   ? rateLimit({
@@ -497,6 +517,7 @@ app.post("/api/usuarios", authRequired, adminRequired, upload.single("foto"), as
   await salvarUsuarios(usuarios);
   const isAdmin = novo.admin;
   await registrarAcao(req, `Criou usuário ${usuario} (admin=${isAdmin})`);
+  broadcast('usuarios-updated');
   res.status(201).json({ id: novo.id, usuario: novo.usuario, admin: novo.admin });
 });
 
@@ -521,6 +542,7 @@ app.put("/api/usuarios/:id", authRequired, adminRequired, upload.single("foto"),
     usuarios[index].foto = `data:image/webp;base64,${buffer.toString('base64')}`;
   }
   await salvarUsuarios(usuarios);
+  broadcast('usuarios-updated');
   const { senha: s, ...usuarioResp } = usuarios[index];
   res.json(usuarioResp);
 });
@@ -531,6 +553,7 @@ app.delete("/api/usuarios/:id", authRequired, adminRequired, async (req, res) =>
   if (index === -1) return res.status(404).json({ erro: "Usuário não encontrado" });
   usuarios.splice(index, 1);
   await salvarUsuarios(usuarios);
+  broadcast('usuarios-updated');
   res.json({ mensagem: "Usuário removido" });
 });
 
@@ -596,6 +619,7 @@ app.post("/api/produtos", authRequired, adminRequired, upload.single("foto"), as
     produtos.push(novoProduto);
     await escreverArquivoJSON(path.join(__dirname, "data", "produtos.json"), produtos);
     await registrarAcao(req, `Criou produto ${nome}`);
+    broadcast('produtos-updated');
     const { foto, ...produtoSemFoto } = novoProduto;
     res.status(201).json(produtoSemFoto);
   } catch (error) {
@@ -627,6 +651,7 @@ app.put("/api/produtos/:id", authRequired, adminRequired, upload.single("foto"),
     produtos[index] = produtoAtualizado;
     await escreverArquivoJSON(path.join(__dirname, "data", "produtos.json"), produtos);
     await registrarAcao(req, `Editou produto ${produtoAtualizado.nome}`);
+    broadcast('produtos-updated');
     const { foto, ...produtoSemFoto } = produtoAtualizado;
     res.json(produtoSemFoto);
   } catch (error) {
@@ -646,6 +671,7 @@ app.delete("/api/produtos/:id", authRequired, adminRequired, async (req, res, ne
     produtos.splice(index, 1);
     await escreverArquivoJSON(path.join(__dirname, "data", "produtos.json"), produtos);
     await registrarAcao(req, `Removeu produto ${nomeRemovido}`);
+    broadcast('produtos-updated');
     res.json({ mensagem: "Produto excluído com sucesso" });
   } catch (error) {
     next(error);
@@ -853,6 +879,7 @@ app.post("/api/orcamentos", authRequired, async (req, res, next) => {
     orcamentos.push(novoOrcamento);
     await escreverArquivoJSON(path.join(__dirname, "data", "orcamentos.json"), orcamentos);
     await registrarAcao(req, `Criou orçamento ${novoOrcamento.id} valor ${formatarMoeda(novoOrcamento.valorTotal)}`);
+    broadcast('orcamentos-updated');
 
     const { itens, ...orcamentoSemFotoItens } = novoOrcamento;
     const itensSemFoto = itens.map(({ foto, ...restoItem }) => restoItem);
@@ -979,6 +1006,7 @@ app.put("/api/orcamentos/:id", authRequired, async (req, res, next) => {
 
     await escreverArquivoJSON(path.join(__dirname, "data", "orcamentos.json"), orcamentos);
     await registrarAcao(req, `Editou orçamento ${orcamentoId}`);
+    broadcast('orcamentos-updated');
 
     const { itens: itensFoto, ...orcSemFoto } = orcamentos[index];
     const itensSemFoto = itensFoto.map(({ foto, ...rest }) => rest);
@@ -1209,6 +1237,8 @@ app.delete("/api/orcamentos/:id", authRequired, async (req, res, next) => {
     }
     orcamentos.splice(index, 1);
     await escreverArquivoJSON(path.join(__dirname, "data", "orcamentos.json"), orcamentos);
+    await registrarAcao(req, `Removeu orçamento ${orcamentoId}`);
+    broadcast('orcamentos-updated');
     res.json({ mensagem: "Orçamento excluído com sucesso" });
   } catch (error) {
     next(error);

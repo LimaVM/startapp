@@ -13,6 +13,7 @@ Um aplicativo web progressivo (PWA) moderno para criação e gerenciamento de or
 - Interface intuitiva e amigável
 - Sistema de login com usuários e permissões (admin pode gerenciar dados)
 - Preenchimento automático de dados de empresas via BrasilAPI ao informar o CNPJ
+- Atualização quase em tempo real entre os usuários por meio de Server-Sent Events (SSE)
 
 ## Tecnologias Utilizadas
 
@@ -28,6 +29,7 @@ Um aplicativo web progressivo (PWA) moderno para criação e gerenciamento de or
 - Service Worker para funcionalidades offline
 - Biblioteca de ícones Material Icons embutida em base64 para funcionar offline sem arquivos binários (CSP permite `data:` para fontes)
 - Design responsivo com Flexbox e CSS Grid
+- Server-Sent Events (SSE) para notificar atualizações em tempo real
 
 ## Estrutura do Projeto
 

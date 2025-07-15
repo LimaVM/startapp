@@ -117,6 +117,22 @@ async function forceReloadData() {
   }
 }
 
+function connectEventSource() {
+  if (eventSource) {
+    eventSource.close();
+  }
+  eventSource = new EventSource('/api/events');
+  eventSource.addEventListener('produtos-updated', () => carregarProdutos(true));
+  eventSource.addEventListener('orcamentos-updated', () => carregarOrcamentos(true));
+  eventSource.addEventListener('usuarios-updated', () => {
+    if (usuarioAtual?.admin) carregarUsuarios(true);
+  });
+  eventSource.onerror = () => {
+    eventSource.close();
+    setTimeout(connectEventSource, 5000);
+  };
+}
+
 // Variáveis globais
 let produtosCache = [];
 let templatesCache = [];
@@ -131,6 +147,7 @@ let formSnapshot = "";
 let currentPage = "home"; // Página atual para controle do histórico
 let usuarioAtual = null; // Dados do usuário logado
 let offlineQueue = [];
+let eventSource = null;
 
 // Elementos DOM frequentemente acessados
 const appContent = document.getElementById("app-content");
@@ -443,6 +460,7 @@ async function verificarSessao() {
       loginModal.classList.remove('active');
     } else {
       localStorage.removeItem('usuarioAtual');
+      if (eventSource) { eventSource.close(); eventSource = null; }
       loginModal.classList.add('active');
       if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -460,6 +478,7 @@ async function verificarSessao() {
       loginModal.classList.remove('active');
     } else {
       console.error('Falha ao verificar sessão', e);
+      if (eventSource) { eventSource.close(); eventSource = null; }
       loginModal.classList.add('active');
     }
   }
@@ -499,6 +518,7 @@ function iniciarAplicacao() {
   initUsuariosPage();
   initPerfilPage();
   carregarDadosIniciais();
+  connectEventSource();
   initInstallPrompt();
   if ("Notification" in window && Notification.permission === "default") {
     Notification.requestPermission();
@@ -758,6 +778,10 @@ function initPerfilPage() {
   });
   logoutBtn?.addEventListener('click', async () => {
     await fetch('/api/logout', { method: 'POST' });
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
     usuarioAtual = null;
     localStorage.removeItem('usuarioAtual');
     loginModal.classList.add('active');
