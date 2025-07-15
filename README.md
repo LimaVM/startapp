@@ -25,7 +25,7 @@ Um aplicativo web progressivo (PWA) moderno para criação e gerenciamento de or
 - Armazenamento de dados em JSON
 - Geração de PDF com Puppeteer
 - Service Worker para funcionalidades offline
-- Biblioteca de ícones Material Icons embutida em base64 para funcionar offline sem arquivos binários
+- Biblioteca de ícones Material Icons embutida em base64 para funcionar offline sem arquivos binários (CSP permite `data:` para fontes)
 - Design responsivo com Flexbox e CSS Grid
 
 ## Estrutura do Projeto
