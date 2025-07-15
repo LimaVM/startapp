@@ -25,11 +25,16 @@ const bcrypt = require("bcrypt");
 const { randomBytes } = require("crypto");
 const rateLimit = require("express-rate-limit");
 const hpp = require("hpp");
+const fsSync = require("fs");
 const app = express();
 
 const APP_VERSION = '2.0.3';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 const IS_PROD = process.env.NODE_ENV === 'production';
+const DOMAIN = process.env.DOMAIN || 'start.devlimassh.shop';
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH || '/etc/letsencrypt/live/start.devlimassh.shop/privkey.pem';
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH || '/etc/letsencrypt/live/start.devlimassh.shop/fullchain.pem';
+const USE_HTTPS = fsSync.existsSync(SSL_KEY_PATH) && fsSync.existsSync(SSL_CERT_PATH);
 
 let browserInstance = null;
 
@@ -101,6 +106,7 @@ if (baseSecret === 'startorcamentos-secret' && process.env.NODE_ENV === 'product
   console.warn('SESSION_SECRET não definido. Usando valor padrão e inseguro.');
 }
 const sessionSecret = `${baseSecret}-${SERVER_INSTANCE}`;
+if (USE_HTTPS) app.set('trust proxy', 1);
 app.use(
   session({
     secret: sessionSecret,
@@ -109,7 +115,7 @@ app.use(
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: IS_PROD,
+      secure: USE_HTTPS,
     },
   })
 );
@@ -1225,20 +1231,20 @@ function startServer() {
   const https = require("https");
   const http = require("http");
 
-  let useHttps = false;
+  let useHttps = USE_HTTPS;
   let sslOptions = null;
 
-  try {
-    sslOptions = {
-      key: require("fs").readFileSync(
-        "/etc/letsencrypt/live/start.devlimassh.shop/privkey.pem"
-      ),
-      cert: require("fs").readFileSync(
-        "/etc/letsencrypt/live/start.devlimassh.shop/fullchain.pem"
-      ),
-    };
-    useHttps = true;
-  } catch {
+  if (useHttps) {
+    try {
+      sslOptions = {
+        key: fsSync.readFileSync(SSL_KEY_PATH),
+        cert: fsSync.readFileSync(SSL_CERT_PATH),
+      };
+    } catch {
+      console.warn("Certificados SSL não encontrados. Iniciando em HTTP.");
+      useHttps = false;
+    }
+  } else {
     console.warn("Certificados SSL não encontrados. Iniciando em HTTP.");
   }
 
@@ -1255,7 +1261,7 @@ function startServer() {
     });
 
     https.createServer(sslOptions, app).listen(443, () => {
-      console.log("✅ Servidor HTTPS rodando em https://start.devlimassh.shop (porta 443)");
+      console.log(`✅ Servidor HTTPS rodando em https://${DOMAIN} (porta 443)`);
     });
   } else {
     const port = process.env.PORT || 80;

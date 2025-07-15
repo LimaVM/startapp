@@ -71,12 +71,17 @@ O arquivo `variaveis_template.txt` contém todas as variáveis disponíveis para
    ```
    npm install
    ```
-3. Inicie o servidor:
+3. Opcionalmente defina as variáveis de ambiente:
+   - `SESSION_SECRET` - chave para assinar a sessão
+   - `DOMAIN` - domínio usado nos logs (padrão `start.devlimassh.shop`)
+   - `SSL_KEY_PATH` e `SSL_CERT_PATH` - caminhos para os certificados SSL
+   - `PORT` - porta HTTP caso não utilize HTTPS
+4. Inicie o servidor:
    ```
    npm start
    ```
-4. O servidor escuta nas portas 80 e 443 (HTTPS). Acesse em `https://seu_dominio`
-5. Faça login com o usuário padrão `start` e senha `start`
+5. O servidor escuta nas portas 80 e 443 (HTTPS) se os certificados existirem. Acesse em `https://seu_dominio`
+6. Faça login com o usuário padrão `start` e senha `start`
 
 Sempre que o servidor é reiniciado, um identificador único é criado e todas as
 sessões anteriores tornam-se inválidas. O navegador remove o cache automaticamente
