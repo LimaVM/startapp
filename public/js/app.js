@@ -1646,33 +1646,35 @@ async function excluirOrcamento(id) {
 
 
 function atualizarQuantidadeProdutoSelecionado(produtoId, quantidade, cardElement = null) {
-    const index = produtosSelecionados.findIndex(p => p.id === produtoId);
-    const produtoOriginal = produtosCache.find(p => p.id === produtoId);
-    if (!produtoOriginal) return;
+  const index = produtosSelecionados.findIndex(p => p.id === produtoId);
+  const produtoOriginal = produtosCache.find(p => p.id === produtoId);
 
-    if (quantidade > 0) {
-        if (index > -1) {
-            produtosSelecionados[index].quantidade = quantidade;
-        } else {
-            produtosSelecionados.push({
-                id: produtoId,
-                nome: produtoOriginal.nome,
-                valorUnitario: produtoOriginal.valor,
-                quantidade: quantidade,
-                foto: produtoOriginal.foto // Inclui a foto base64 na seleção
-            });
-        }
-        if (cardElement) cardElement.classList.add("selected");
+  if (quantidade > 0) {
+    if (!produtoOriginal) return; // Não consegue adicionar sem dados de referência
+
+    if (index > -1) {
+      produtosSelecionados[index].quantidade = quantidade;
     } else {
-        if (index > -1) {
-            produtosSelecionados.splice(index, 1);
-        }
-        if (cardElement) cardElement.classList.remove("selected");
+      produtosSelecionados.push({
+        id: produtoId,
+        nome: produtoOriginal.nome,
+        valorUnitario: produtoOriginal.valor,
+        quantidade,
+        foto: produtoOriginal.foto
+      });
     }
-    if (cardElement) {
-        const decreaseBtn = cardElement.querySelector(".quantity-decrease");
-        if (decreaseBtn) decreaseBtn.disabled = quantidade === 0;
+    if (cardElement) cardElement.classList.add("selected");
+  } else {
+    if (index > -1) {
+      produtosSelecionados.splice(index, 1);
     }
+    if (cardElement) cardElement.classList.remove("selected");
+  }
+
+  if (cardElement) {
+    const decreaseBtn = cardElement.querySelector(".quantity-decrease");
+    if (decreaseBtn) decreaseBtn.disabled = quantidade === 0;
+  }
 }
 
 // --- Funções de Filtragem --- //

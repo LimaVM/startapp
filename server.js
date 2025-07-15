@@ -29,7 +29,7 @@ const hpp = require("hpp");
 const fsSync = require("fs");
 const app = express();
 
-const APP_VERSION = '2.0.8';
+const APP_VERSION = '2.0.9';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 const IS_PROD = process.env.NODE_ENV === 'production';
 const DOMAIN = process.env.DOMAIN || 'start.devlimassh.shop';
