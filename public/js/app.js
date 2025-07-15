@@ -680,6 +680,8 @@ function initHomePage() {
 
 function initProdutosPage() {
   addProdutoBtn.addEventListener("click", () => abrirModalProduto());
+  const emptyBtnInicial = document.getElementById('empty-add-produto-btn');
+  if (emptyBtnInicial) emptyBtnInicial.addEventListener('click', () => addProdutoBtn.click());
   produtoSearch.addEventListener("input", () => {
     const termo = produtoSearch.value.toLowerCase();
     filtrarProdutos(termo);
@@ -696,6 +698,8 @@ function initProdutosPage() {
 
 function initOrcamentosPage() {
   addOrcamentoBtn.addEventListener("click", () => abrirModalOrcamento());
+  const emptyBtnInicial = document.getElementById('empty-add-orcamento-btn');
+  if (emptyBtnInicial) emptyBtnInicial.addEventListener('click', () => addOrcamentoBtn.click());
   orcamentoSearch.addEventListener("input", () => {
     const termo = orcamentoSearch.value.toLowerCase();
     filtrarOrcamentos(termo);
@@ -1187,11 +1191,13 @@ function renderizarProdutos() {
         <span class="material-icons">inventory_2</span>
         <h3>Nenhum produto cadastrado</h3>
         <p>Adicione produtos para incluí-los nos orçamentos.</p>
-        <button class="btn btn-primary" onclick="abrirModalProduto()">
+        <button id="empty-add-produto-btn" class="btn btn-primary">
           <span class="material-icons">add</span> Adicionar Produto
         </button>
       </div>
     `;
+    const btn = produtosLista.querySelector('#empty-add-produto-btn');
+    if (btn) btn.addEventListener('click', () => addProdutoBtn.click());
     return;
   }
 
@@ -1245,11 +1251,13 @@ function renderizarOrcamentos() {
         <span class="material-icons">description</span>
         <h3>Nenhum orçamento cadastrado</h3>
         <p>Crie seu primeiro orçamento.</p>
-         <button class="btn btn-primary" onclick="abrirModalOrcamento()">
+         <button id="empty-add-orcamento-btn" class="btn btn-primary">
           <span class="material-icons">add</span> Criar Orçamento
         </button>
       </div>
     `;
+    const btn = orcamentosLista.querySelector('#empty-add-orcamento-btn');
+    if (btn) btn.addEventListener('click', () => addOrcamentoBtn.click());
     return;
   }
 

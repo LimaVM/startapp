@@ -15,12 +15,12 @@
   
   <!-- Manifest para PWA -->
   <link rel="manifest" href="/manifest.json">
-  <link rel="preload" href="/css/modern-style.css?v=2.0.6" as="style">
-  <link rel="preload" href="/js/app.js?v=2.0.6" as="script">
-  <link rel="prefetch" href="/js/jspdf.umd.min.js?v=2.0.6" as="script">
+  <link rel="preload" href="/css/modern-style.css?v=2.0.7" as="style">
+  <link rel="preload" href="/js/app.js?v=2.0.7" as="script">
+  <link rel="prefetch" href="/js/jspdf.umd.min.js?v=2.0.7" as="script">
   
   <!-- Estilos CSS com versionamento anti-cache -->
-  <link rel="stylesheet" href="/css/modern-style.css?v=2.0.6">
+  <link rel="stylesheet" href="/css/modern-style.css?v=2.0.7">
   
   <!-- Fonte Inter do Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- Ícones Material - carregados localmente para funcionar offline -->
-  <link rel="stylesheet" href="/fonts/material-icons.css?v=2.0.6">
+  <link rel="stylesheet" href="/fonts/material-icons.css?v=2.0.7">
 </head>
 <body>
   <!-- Cabeçalho do aplicativo -->
@@ -192,7 +192,7 @@
             <span class="material-icons">inventory_2</span>
             <h3>Nenhum produto cadastrado</h3>
             <p>Adicione produtos ao seu catálogo para começar a criar orçamentos.</p>
-            <button class="btn btn-primary" onclick="document.getElementById('add-produto-btn').click()">
+            <button id="empty-add-produto-btn" class="btn btn-primary">
               <span class="material-icons">add</span>
               Adicionar Produto
             </button>
@@ -218,7 +218,7 @@
             <span class="material-icons">description</span>
             <h3>Nenhum orçamento cadastrado</h3>
             <p>Crie seu primeiro orçamento para começar a gerenciar suas propostas.</p>
-            <button class="btn btn-primary" onclick="document.getElementById('add-orcamento-btn').click()">
+            <button id="empty-add-orcamento-btn" class="btn btn-primary">
               <span class="material-icons">add</span>
               Criar Orçamento
             </button>
@@ -731,8 +731,8 @@
   </div>
 
   <!-- Scripts com versionamento anti-cache -->
-  <script src="/js/jspdf.umd.min.js?v=2.0.6" defer></script>
-  <script src="/js/app.js?v=2.0.6" defer></script>
+  <script src="/js/jspdf.umd.min.js?v=2.0.7" defer></script>
+  <script src="/js/app.js?v=2.0.7" defer></script>
   <script>
     // Registra o service worker para PWA com estratégia de atualização
     if ('serviceWorker' in navigator) {
