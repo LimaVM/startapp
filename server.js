@@ -29,7 +29,7 @@ const hpp = require("hpp");
 const fsSync = require("fs");
 const app = express();
 
-const APP_VERSION = '2.0.4';
+const APP_VERSION = '2.0.5';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 const IS_PROD = process.env.NODE_ENV === 'production';
 const DOMAIN = process.env.DOMAIN || 'start.devlimassh.shop';
@@ -100,7 +100,16 @@ app.use((req, res, next) => {
   next();
 });
 app.use(compression());
-app.use(helmet());
+const cspDirectives = helmet.contentSecurityPolicy.getDefaultDirectives();
+cspDirectives["script-src"] = ["'self'", "'unsafe-inline'"];
+cspDirectives["style-src"] = ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"];
+cspDirectives["font-src"] = ["'self'", "https://fonts.gstatic.com"];
+cspDirectives["connect-src"] = ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"];
+app.use(
+  helmet({
+    contentSecurityPolicy: { directives: cspDirectives }
+  })
+);
 
 const baseSecret = process.env.SESSION_SECRET || 'startorcamentos-secret';
 if (baseSecret === 'startorcamentos-secret' && process.env.NODE_ENV === 'production') {
