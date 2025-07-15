@@ -21,6 +21,7 @@ const compression = require("compression");
 const helmet = require("helmet");
 const xssClean = require("xss-clean");
 const sanitizeHtml = require("sanitize-html");
+const UAParser = require("ua-parser-js");
 const bcrypt = require("bcrypt");
 const { randomBytes } = require("crypto");
 const rateLimit = require("express-rate-limit");
@@ -28,7 +29,7 @@ const hpp = require("hpp");
 const fsSync = require("fs");
 const app = express();
 
-const APP_VERSION = '2.0.3';
+const APP_VERSION = '2.0.4';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 const IS_PROD = process.env.NODE_ENV === 'production';
 const DOMAIN = process.env.DOMAIN || 'start.devlimassh.shop';
@@ -376,23 +377,25 @@ function adminRequired(req, res, next) {
 app.post("/api/login", loginLimiter, async (req, res) => {
   const { usuario, senha } = req.body;
   const ip = req.ip;
+  const ua = new UAParser(req.headers['user-agent']).getResult();
+  const deviceInfo = `${ua.browser.name || 'Unknown'} ${ua.browser.version || ''} on ${ua.os.name || 'Unknown OS'} ${ua.os.version || ''}`;
   if (!usuario || !senha) {
-    console.log(`[LOGIN FAIL] ${ip} - credenciais incompletas para "${usuario || 'desconhecido'}"`);
+    console.log(`[LOGIN FAIL] ${ip} - credenciais incompletas para "${usuario || 'desconhecido'}" via ${deviceInfo}`);
     return res.status(400).json({ erro: "Credenciais inválidas" });
   }
   const usuarios = await obterUsuarios();
   const found = usuarios.find((u) => u.usuario === usuario);
   if (!found) {
-    console.log(`[LOGIN FAIL] ${ip} - usuário inexistente "${usuario}"`);
+    console.log(`[LOGIN FAIL] ${ip} - usuário inexistente "${usuario}" via ${deviceInfo}`);
     return res.status(401).json({ erro: "Usuário ou senha incorretos" });
   }
   const ok = await bcrypt.compare(senha, found.senha);
   if (!ok) {
-    console.log(`[LOGIN FAIL] ${ip} - senha incorreta para "${usuario}"`);
+    console.log(`[LOGIN FAIL] ${ip} - senha incorreta para "${usuario}" via ${deviceInfo}`);
     return res.status(401).json({ erro: "Usuário ou senha incorretos" });
   }
   req.session.usuario = { id: found.id, usuario: found.usuario, admin: found.admin };
-  console.log(`[LOGIN OK] ${ip} - usuário "${usuario}" logado`);
+  console.log(`[LOGIN OK] ${ip} - usuário "${usuario}" logado usando ${deviceInfo}`);
   await registrarAcao(req, 'Login realizado');
   res.json({ id: found.id, usuario: found.usuario, admin: found.admin });
 });

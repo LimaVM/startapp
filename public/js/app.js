@@ -219,7 +219,9 @@ const selectFotoBtn = document.getElementById("select-foto-btn");
 
 function atualizarDisponibilidadeOnline() {
   const online = navigator.onLine;
-  if (addProdutoBtn) addProdutoBtn.disabled = !online;
+  if (!online) {
+    console.warn('Aplicativo offline');
+  }
 }
 
 window.addEventListener('online', () => {
@@ -1413,10 +1415,6 @@ function renderizarProdutosSelecionadosNoForm() {
 // --- Funções de Abertura de Modais --- //
 
 async function abrirModalProduto(id = null) {
-  if (!navigator.onLine) {
-    mostrarToast('Função indisponível offline');
-    return;
-  }
   produtoForm.reset();
   produtoId.value = "";
   produtoFotoInput.value = ""; // Limpa seleção de arquivo anterior
