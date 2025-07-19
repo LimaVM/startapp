@@ -29,7 +29,7 @@ const hpp = require("hpp");
 const fsSync = require("fs");
 const app = express();
 
-const APP_VERSION = '2.0.10';
+const APP_VERSION = '2.0.11';
 const SERVER_INSTANCE = randomBytes(4).toString('hex');
 const IS_PROD = process.env.NODE_ENV === 'production';
 const DOMAIN = process.env.DOMAIN || 'start.devlimassh.shop';
@@ -482,6 +482,7 @@ app.put("/api/usuarios/me", authRequired, upload.single("foto"), async (req, res
     usuarios[index].foto = `data:image/webp;base64,${buffer.toString('base64')}`;
   }
   await salvarUsuarios(usuarios);
+  broadcast('usuarios-updated');
   const { senha: s, ...updatedUser } = usuarios[index];
   res.json(updatedUser);
 });
@@ -1178,6 +1179,7 @@ app.get("/api/orcamentos/:id/pdf", authRequired, async (req, res, next) => {
       orcamentos[index].pdfUrl = `/pdfs/${nomeArquivo}`;
       await escreverArquivoJSON(path.join(__dirname, "data", "orcamentos.json"), orcamentos);
       console.log(`[PDF ${orcamentoId}] Orçamento atualizado no JSON.`);
+      broadcast('orcamentos-updated');
     } else {
       console.warn(`[PDF ${orcamentoId}] Orçamento não encontrado para atualização após gerar PDF.`);
     }
