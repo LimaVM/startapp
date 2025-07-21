@@ -117,6 +117,22 @@ async function forceReloadData() {
   }
 }
 
+function connectEventSource() {
+  if (eventSource) {
+    eventSource.close();
+  }
+  eventSource = new EventSource('/api/events');
+  eventSource.addEventListener('produtos-updated', () => carregarProdutos(true));
+  eventSource.addEventListener('orcamentos-updated', () => carregarOrcamentos(true));
+  eventSource.addEventListener('usuarios-updated', () => {
+    if (usuarioAtual?.admin) carregarUsuarios(true);
+  });
+  eventSource.onerror = () => {
+    eventSource.close();
+    setTimeout(connectEventSource, 5000);
+  };
+}
+
 // Variáveis globais
 let produtosCache = [];
 let templatesCache = [];
@@ -131,6 +147,7 @@ let formSnapshot = "";
 let currentPage = "home"; // Página atual para controle do histórico
 let usuarioAtual = null; // Dados do usuário logado
 let offlineQueue = [];
+let eventSource = null;
 
 // Elementos DOM frequentemente acessados
 const appContent = document.getElementById("app-content");
@@ -219,7 +236,9 @@ const selectFotoBtn = document.getElementById("select-foto-btn");
 
 function atualizarDisponibilidadeOnline() {
   const online = navigator.onLine;
-  if (addProdutoBtn) addProdutoBtn.disabled = !online;
+  if (!online) {
+    console.warn('Aplicativo offline');
+  }
 }
 
 window.addEventListener('online', () => {
@@ -362,6 +381,25 @@ async function buscarCep() {
   }
 }
 
+async function buscarCnpj() {
+  const cnpj = clienteCpf.value.replace(/\D/g, '');
+  if (cnpj.length !== 14 || !navigator.onLine) return;
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const nome = data.nome_fantasia || data.razao_social;
+    if (!clienteNome.value && nome) clienteNome.value = nome;
+    const endereco = `${data.logradouro}${data.numero ? ', ' + data.numero : ''}, ${data.bairro}, ${data.municipio} - ${data.uf}`.trim();
+    if (!clienteEndereco.value && data.logradouro) clienteEndereco.value = endereco;
+    if (!clienteCep.value && data.cep) clienteCep.value = data.cep;
+    if (!clienteTelefone.value && data.ddd_telefone_1) clienteTelefone.value = data.ddd_telefone_1;
+    if (!clienteEmail.value && data.email) clienteEmail.value = data.email;
+  } catch (err) {
+    console.error('Erro ao buscar CNPJ', err);
+  }
+}
+
 
 function atualizarEstadoBotaoProximo() {
   const tabAtual = document.querySelector(".tab-btn.active");
@@ -421,20 +459,14 @@ async function verificarSessao() {
       configurarMenuAdmin();
       loginModal.classList.remove('active');
     } else {
-      const stored = localStorage.getItem('usuarioAtual');
-      if (stored) {
-        usuarioAtual = JSON.parse(stored);
-        iniciarAplicacao();
-        configurarMenuAdmin();
-        loginModal.classList.remove('active');
-      } else {
-        loginModal.classList.add('active');
-        if (loginForm) {
-          loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await realizarLogin();
-          });
-        }
+      localStorage.removeItem('usuarioAtual');
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      loginModal.classList.add('active');
+      if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          await realizarLogin();
+        });
       }
     }
   } catch (e) {
@@ -446,6 +478,7 @@ async function verificarSessao() {
       loginModal.classList.remove('active');
     } else {
       console.error('Falha ao verificar sessão', e);
+      if (eventSource) { eventSource.close(); eventSource = null; }
       loginModal.classList.add('active');
     }
   }
@@ -485,6 +518,7 @@ function iniciarAplicacao() {
   initUsuariosPage();
   initPerfilPage();
   carregarDadosIniciais();
+  connectEventSource();
   initInstallPrompt();
   if ("Notification" in window && Notification.permission === "default") {
     Notification.requestPermission();
@@ -666,6 +700,8 @@ function initHomePage() {
 
 function initProdutosPage() {
   addProdutoBtn.addEventListener("click", () => abrirModalProduto());
+  const emptyBtnInicial = document.getElementById('empty-add-produto-btn');
+  if (emptyBtnInicial) emptyBtnInicial.addEventListener('click', () => addProdutoBtn.click());
   produtoSearch.addEventListener("input", () => {
     const termo = produtoSearch.value.toLowerCase();
     filtrarProdutos(termo);
@@ -682,6 +718,8 @@ function initProdutosPage() {
 
 function initOrcamentosPage() {
   addOrcamentoBtn.addEventListener("click", () => abrirModalOrcamento());
+  const emptyBtnInicial = document.getElementById('empty-add-orcamento-btn');
+  if (emptyBtnInicial) emptyBtnInicial.addEventListener('click', () => addOrcamentoBtn.click());
   orcamentoSearch.addEventListener("input", () => {
     const termo = orcamentoSearch.value.toLowerCase();
     filtrarOrcamentos(termo);
@@ -740,6 +778,10 @@ function initPerfilPage() {
   });
   logoutBtn?.addEventListener('click', async () => {
     await fetch('/api/logout', { method: 'POST' });
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
     usuarioAtual = null;
     localStorage.removeItem('usuarioAtual');
     loginModal.classList.add('active');
@@ -858,6 +900,7 @@ function initOrcamentoModal() {
   }
   if (clienteCpf) {
     clienteCpf.addEventListener('input', () => validarCpfCnpj());
+    clienteCpf.addEventListener('blur', buscarCnpj);
   }
   if (clienteCep) {
     clienteCep.addEventListener('blur', buscarCep);
@@ -1148,12 +1191,15 @@ async function carregarOrcamentos(forceReload = false) {
   
   try {
     const response = await fetchWithNoCache("/api/orcamentos");
-    if (!response.ok) throw new Error("Erro ao buscar orçamentos");
-    orcamentosCache = await response.json();
+    if (response.ok) {
+      orcamentosCache = await response.json();
+    } else {
+      console.warn('Não foi possível obter orçamentos:', response.status);
+      orcamentosCache = [];
+    }
     renderizarOrcamentos();
   } catch (error) {
-    console.error("Erro ao carregar orçamentos:", error);
-    mostrarToast("Erro ao carregar orçamentos.", "error");
+    console.error('Falha ao carregar orçamentos', error);
     orcamentosCache = [];
     renderizarOrcamentos();
   }
@@ -1169,11 +1215,13 @@ function renderizarProdutos() {
         <span class="material-icons">inventory_2</span>
         <h3>Nenhum produto cadastrado</h3>
         <p>Adicione produtos para incluí-los nos orçamentos.</p>
-        <button class="btn btn-primary" onclick="abrirModalProduto()">
+        <button id="empty-add-produto-btn" class="btn btn-primary">
           <span class="material-icons">add</span> Adicionar Produto
         </button>
       </div>
     `;
+    const btn = produtosLista.querySelector('#empty-add-produto-btn');
+    if (btn) btn.addEventListener('click', () => addProdutoBtn.click());
     return;
   }
 
@@ -1227,11 +1275,13 @@ function renderizarOrcamentos() {
         <span class="material-icons">description</span>
         <h3>Nenhum orçamento cadastrado</h3>
         <p>Crie seu primeiro orçamento.</p>
-         <button class="btn btn-primary" onclick="abrirModalOrcamento()">
+         <button id="empty-add-orcamento-btn" class="btn btn-primary">
           <span class="material-icons">add</span> Criar Orçamento
         </button>
       </div>
     `;
+    const btn = orcamentosLista.querySelector('#empty-add-orcamento-btn');
+    if (btn) btn.addEventListener('click', () => addOrcamentoBtn.click());
     return;
   }
 
@@ -1397,10 +1447,6 @@ function renderizarProdutosSelecionadosNoForm() {
 // --- Funções de Abertura de Modais --- //
 
 async function abrirModalProduto(id = null) {
-  if (!navigator.onLine) {
-    mostrarToast('Função indisponível offline');
-    return;
-  }
   produtoForm.reset();
   produtoId.value = "";
   produtoFotoInput.value = ""; // Limpa seleção de arquivo anterior
@@ -1624,33 +1670,35 @@ async function excluirOrcamento(id) {
 
 
 function atualizarQuantidadeProdutoSelecionado(produtoId, quantidade, cardElement = null) {
-    const index = produtosSelecionados.findIndex(p => p.id === produtoId);
-    const produtoOriginal = produtosCache.find(p => p.id === produtoId);
-    if (!produtoOriginal) return;
+  const index = produtosSelecionados.findIndex(p => p.id === produtoId);
+  const produtoOriginal = produtosCache.find(p => p.id === produtoId);
 
-    if (quantidade > 0) {
-        if (index > -1) {
-            produtosSelecionados[index].quantidade = quantidade;
-        } else {
-            produtosSelecionados.push({
-                id: produtoId,
-                nome: produtoOriginal.nome,
-                valorUnitario: produtoOriginal.valor,
-                quantidade: quantidade,
-                foto: produtoOriginal.foto // Inclui a foto base64 na seleção
-            });
-        }
-        if (cardElement) cardElement.classList.add("selected");
+  if (quantidade > 0) {
+    if (!produtoOriginal) return; // Não consegue adicionar sem dados de referência
+
+    if (index > -1) {
+      produtosSelecionados[index].quantidade = quantidade;
     } else {
-        if (index > -1) {
-            produtosSelecionados.splice(index, 1);
-        }
-        if (cardElement) cardElement.classList.remove("selected");
+      produtosSelecionados.push({
+        id: produtoId,
+        nome: produtoOriginal.nome,
+        valorUnitario: produtoOriginal.valor,
+        quantidade,
+        foto: produtoOriginal.foto
+      });
     }
-    if (cardElement) {
-        const decreaseBtn = cardElement.querySelector(".quantity-decrease");
-        if (decreaseBtn) decreaseBtn.disabled = quantidade === 0;
+    if (cardElement) cardElement.classList.add("selected");
+  } else {
+    if (index > -1) {
+      produtosSelecionados.splice(index, 1);
     }
+    if (cardElement) cardElement.classList.remove("selected");
+  }
+
+  if (cardElement) {
+    const decreaseBtn = cardElement.querySelector(".quantity-decrease");
+    if (decreaseBtn) decreaseBtn.disabled = quantidade === 0;
+  }
 }
 
 // --- Funções de Filtragem --- //
@@ -1690,7 +1738,7 @@ async function baixarPdfOrcamento() {
   }
   iniciarProgressoPdf();
   try {
-    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`);
+    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`, { cache: 'no-cache' });
     if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || `Erro ${response.status} ao gerar PDF`);
@@ -1728,7 +1776,7 @@ async function compartilharPdfOrcamento() {
   }
   iniciarProgressoPdf();
   try {
-    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`);
+    const response = await fetch(`/api/orcamentos/${orcamentoId}/pdf`, { cache: 'no-cache' });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(errorText || `Erro ${response.status} ao gerar PDF`);
@@ -1977,15 +2025,17 @@ function mostrarConfirmacao(mensagem) {
 async function carregarUsuarios() {
   try {
     const res = await fetch('/api/usuarios');
-    if (!res.ok) throw new Error('Erro ao buscar usuários');
-    usuariosCache = await res.json();
-    renderizarUsuarios();
+    if (res.ok) {
+      usuariosCache = await res.json();
+    } else {
+      console.warn('Não foi possível obter usuários:', res.status);
+      usuariosCache = [];
+    }
   } catch (err) {
     console.error('Falha ao carregar usuários', err);
-    mostrarToast('Erro ao carregar usuários');
     usuariosCache = [];
-    renderizarUsuarios();
   }
+  renderizarUsuarios();
 }
 
 function renderizarUsuarios() {
@@ -2067,15 +2117,17 @@ document.querySelectorAll('#usuario-modal .modal-close, #usuario-modal .modal-ca
 async function carregarRegistros() {
   try {
     const res = await fetch('/api/logs');
-    if (!res.ok) throw new Error('Erro ao buscar registros');
-    registrosCache = await res.json();
-    renderizarRegistros();
+    if (res.ok) {
+      registrosCache = await res.json();
+    } else {
+      console.warn('Não foi possível obter registros:', res.status);
+      registrosCache = [];
+    }
   } catch (err) {
     console.error('Falha ao carregar registros', err);
-    mostrarToast('Erro ao carregar registros');
     registrosCache = [];
-    renderizarRegistros();
   }
+  renderizarRegistros();
 }
 
 function renderizarRegistros() {
@@ -2098,13 +2150,15 @@ async function carregarPerfil() {
   if (!perfilForm) return;
   try {
     const res = await fetch('/api/usuarios/me');
-    if (!res.ok) throw new Error('Erro ao carregar perfil');
-    const user = await res.json();
-    perfilNome.value = user.usuario;
-    if (user.foto) perfilFotoPreview.src = user.foto;
+    if (res.ok) {
+      const user = await res.json();
+      perfilNome.value = user.usuario;
+      if (user.foto) perfilFotoPreview.src = user.foto;
+    } else {
+      console.warn('Não foi possível carregar perfil:', res.status);
+    }
   } catch (err) {
-    console.error(err);
-    mostrarToast('Erro ao carregar perfil');
+    console.error('Erro ao carregar perfil', err);
   }
 }
 

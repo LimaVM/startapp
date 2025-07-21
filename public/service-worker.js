@@ -5,11 +5,13 @@
  * offline do aplicativo, com estratégia anti-cache melhorada.
  * 
  * @author Manus
- * @version 2.0.0 - Estratégia anti-cache implementada
+ * @version 2.0.11 - Estratégia anti-cache implementada
  */
 
-// Versão do cache - ALTERE ESTE VALOR SEMPRE QUE ATUALIZAR O APP
-const CACHE_VERSION = 'v2.0.0-' + Date.now();
+// Versão do app e do cache - atualize manualmente a cada release
+const APP_VERSION = '2.0.11';
+const INSTANCE = new URL(self.location).searchParams.get('i') || '0';
+const CACHE_VERSION = 'v2.0.11-' + INSTANCE;
 const STATIC_CACHE = 'orcamentos-static-' + CACHE_VERSION;
 const DATA_CACHE = 'orcamentos-data-' + CACHE_VERSION;
 
@@ -21,6 +23,7 @@ const INITIAL_CACHE_URLS = [
   '/js/app.js',
   '/js/jspdf.umd.min.js',
   '/manifest.json',
+  '/fonts/material-icons.css',
   '/images/placeholder.png',
   '/images/icons/icon-72x72.png',
   '/images/icons/icon-96x96.png',
@@ -35,6 +38,7 @@ const INITIAL_CACHE_URLS = [
 // URLs que devem sempre buscar da rede (nunca usar cache)
 const NEVER_CACHE_URLS = [
   '/api/',
+  '/api/events',
   '/pdfs/',
   'service-worker.js'
 ];
@@ -86,7 +90,7 @@ self.addEventListener('activate', event => {
         clients.forEach(client => {
           client.postMessage({
             type: 'SW_UPDATED',
-            version: CACHE_VERSION
+            version: APP_VERSION
           });
         });
       });

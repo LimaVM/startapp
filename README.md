@@ -12,15 +12,24 @@ Um aplicativo web progressivo (PWA) moderno para criação e gerenciamento de or
 - Funcionamento offline (consulta a produtos e templates mesmo sem conexão, sem cadastro de novos dados)
 - Interface intuitiva e amigável
 - Sistema de login com usuários e permissões (admin pode gerenciar dados)
+- Preenchimento automático de dados de empresas via BrasilAPI ao informar o CNPJ
+- Atualização quase em tempo real entre os usuários por meio de Server-Sent Events (SSE)
 
 ## Tecnologias Utilizadas
 
 - HTML5, CSS3 e JavaScript moderno
 - Express.js para o backend
+- Helmet para reforçar a segurança HTTP
+- xss-clean e sanitize-html para prevenir injeção XSS
+- express-rate-limit para limitar tentativas e ataques de força bruta
+- hpp para evitar poluição de parâmetros
+- ua-parser-js para registrar navegador e dispositivo nos logs de login
 - Armazenamento de dados em JSON
 - Geração de PDF com Puppeteer
 - Service Worker para funcionalidades offline
+- Biblioteca de ícones Material Icons embutida em base64 para funcionar offline sem arquivos binários (CSP permite `data:` para fontes)
 - Design responsivo com Flexbox e CSS Grid
+- Server-Sent Events (SSE) para notificar atualizações em tempo real
 
 ## Estrutura do Projeto
 
@@ -66,12 +75,41 @@ O arquivo `variaveis_template.txt` contém todas as variáveis disponíveis para
    ```
    npm install
    ```
-3. Inicie o servidor:
+3. Opcionalmente defina as variáveis de ambiente:
+   - `SESSION_SECRET` - chave para assinar a sessão
+   - `DOMAIN` - domínio usado nos logs (padrão `start.devlimassh.shop`)
+   - `SSL_KEY_PATH` e `SSL_CERT_PATH` - caminhos para os certificados SSL
+   - `PORT` - porta HTTP caso não utilize HTTPS
+4. Inicie o servidor:
    ```
    npm start
    ```
-4. O servidor escuta nas portas 80 e 443 (HTTPS). Acesse em `https://seu_dominio`
-5. Faça login com o usuário padrão `start` e senha `start`
+5. O servidor escuta nas portas 80 e 443 (HTTPS) se os certificados existirem. Acesse em `https://seu_dominio`
+6. Faça login com o usuário padrão `start` e senha `start`
+
+Sempre que o servidor é reiniciado, um identificador único é criado e todas as
+sessões anteriores tornam-se inválidas. O navegador remove o cache automaticamente
+ao detectar uma nova instância do servidor.
+
+### Dependências para geração de PDF (Ubuntu)
+
+Ao gerar PDFs o projeto utiliza o Puppeteer com o navegador Chromium. Em algumas
+instalações do Ubuntu o binário `/usr/bin/chromium-browser` não está presente e
+aparecem erros semelhantes a:
+
+```
+Erro ao baixar PDF: {"erro":"Failed to launch the browser process!\n/usr/bin/chromium-browser: 12: xdg-settings: not found"}
+```
+
+Para resolver instale o Chromium e bibliotecas necessárias:
+
+```bash
+sudo apt install -y chromium-browser libgbm1 xdg-utils
+```
+
+Certifique-se de que o comando `chromium` ou `chromium-browser` funcione em seu
+sistema. Se continuar com problemas, consulte o guia oficial em
+<https://pptr.dev/troubleshooting>.
 
 ## Responsividade
 
